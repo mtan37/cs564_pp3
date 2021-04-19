@@ -51,7 +51,7 @@ BTreeIndex::~BTreeIndex()
 
 void BTreeIndex::insertEntry(const void *key, const RecordId rid) 
 {
-    // Add your code below. Please do not remove this line.
+	// my part to work on
 }
 
 // -----------------------------------------------------------------------------
