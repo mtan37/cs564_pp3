@@ -69,11 +69,11 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 		for (int j = 0; j < sizeof(childNode->keyArray); j++) {
 			if (childNode->keyArray[j] == keyVal) {
 				targetNode = (LeafNodeInt*)(&(file->readPage(childNode->keyArray[j])));
-				goto loopend;
+				goto foundleafnode;
 			}
 		}
 	}
-	loopend:
+	foundleafnode:
 
 	//insert record
 	//full node
@@ -92,11 +92,13 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 					targetNode->keyArray[i + 1] = targetNode->keyArray[j];
 					targetNode->ridArray[i + 1] = targetNode->ridArray[j];
 				}
+				//fill in new value in the gap
 				targetNode->keyArray[i] = keyVal;
 				targetNode->ridArray[i] = rid;
+				goto finishedshift;
 			}
 		}
-		loopend2:
+		finishedshift:
 		targetNode->keyArray[targetNode->length] = keyVal;
 		targetNode->ridArray[targetNode->length] = rid;
 		targetNode->length++;
