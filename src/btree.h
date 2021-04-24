@@ -46,13 +46,13 @@ enum Operator
  * @brief Number of key slots in B+Tree leaf for INTEGER key.
  */
 //                                                  sibling ptr             key               rid
-const  int INTARRAYLEAFSIZE = ( Page::SIZE - sizeof( PageId ) ) / ( sizeof( int ) + sizeof( RecordId ) );
+const  int INTARRAYLEAFSIZE = ( Page::SIZE - sizeof( PageId ) - sizeof(int) ) / ( sizeof( int ) + sizeof( RecordId ) );
 
 /**
  * @brief Number of key slots in B+Tree non-leaf for INTEGER key.
  */
 //                                                     level     extra pageNo                  key       pageNo
-const  int INTARRAYNONLEAFSIZE = ( Page::SIZE - sizeof( int ) - sizeof( PageId ) ) / ( sizeof( int ) + sizeof( PageId ) );
+const  int INTARRAYNONLEAFSIZE = ( Page::SIZE - sizeof( int ) * 2 - sizeof( PageId ) ) / ( sizeof( int ) + sizeof( PageId ) );
 
 /**
  * @brief Structure to store a key-rid pair. It is used to pass the pair to functions that 
@@ -141,6 +141,12 @@ at this level are just above the leaf nodes. Otherwise set to 0.
  * @brief Structure for all non-leaf nodes when the key is of INTEGER type.
 */
 struct NonLeafNodeInt{
+
+  /**
+   * Length of occupied keyArray
+   */
+    int length;
+
   /**
    * Level of the node in the tree.
    */
@@ -162,6 +168,12 @@ struct NonLeafNodeInt{
  * @brief Structure for all leaf nodes when the key is of INTEGER type.
 */
 struct LeafNodeInt{
+  
+  /**
+   * Length of occupied keyArray
+   */
+    int length;
+  
   /**
    * Stores keys.
    */
