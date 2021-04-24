@@ -291,6 +291,14 @@ class BTreeIndex {
    */
 	Operator	highOp;
 
+   /**
+    * start scan helper function. Handles the case when the index 
+    * datatype is integer.
+    * This function assumes that all pass in value are not null, 
+    * and the operator values are valid
+    */
+    void startScanInt(const int lowVal, const Operator lowOp, const int highVal, const Operator highOp);
+
 	
  public:
 
