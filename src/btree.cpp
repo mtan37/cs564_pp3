@@ -55,15 +55,16 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	// my part to work on
 
 	int keyVal = *(int*)key;
-	int targetPageNum = rid.page_number;
-	int targetSlotNum = rid.slot_number;
+	//int targetPageNum = rid.page_number;
+	//int targetSlotNum = rid.slot_number;
 	
 	Page* rootPage = &(file->readPage(rootPageNum));
 	NonLeafNodeInt* rootNode = (NonLeafNodeInt*)rootPage;
 
 	//iterate children to find appropriate leafnode (needs to be written recursive to handle multiple layers)
+	// something like while(level != 1) 
 	LeafNodeInt* targetNode;
-	outer:for (int i = 0; i < sizeof(rootNode->pageNoArray); i++) {
+	for (int i = 0; i < sizeof(rootNode->pageNoArray); i++) {
 		NonLeafNodeInt* childNode = (NonLeafNodeInt*)(&(file->readPage(rootNode->pageNoArray[i])));
 		for (int j = 0; j < sizeof(childNode->keyArray); j++) {
 			if (childNode->keyArray[j] == keyVal) {
@@ -76,29 +77,48 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 
 	//insert record
 	//full node
-	if (sizeof(targetNode->keyArray) == INTARRAYLEAFSIZE) {
+	if (targetNode->length == INTARRAYLEAFSIZE) {
 
-	} else { //not full node
+		//split
 
+	} else { //not full node, no need to split
+		
+		//find where to insert new key
+		for (int i = 0; i < targetNode->length - 1; i++) {
+			if (targetNode->keyArray[i] <= keyVal && targetNode->keyArray[i + 1] >= keyVal) {
+				
+				//shift existing keys upwards
+				for (int j = i; j < targetNode->length - 1; j++) {
+					targetNode->keyArray[i + 1] = targetNode->keyArray[j];
+					targetNode->ridArray[i + 1] = targetNode->ridArray[j];
+				}
+				targetNode->keyArray[i] = keyVal;
+				targetNode->ridArray[i] = rid;
+			}
+		}
+		loopend2:
+		targetNode->keyArray[targetNode->length] = keyVal;
+		targetNode->ridArray[targetNode->length] = rid;
+		targetNode->length++;
 	}
 
 	//handle rebalancing
 
 
 
-	//test
+	//test stuff below here
 
-	rootPageNum; //PageID
-	headerPageNum; //PageID
+	//rootPageNum; //PageID
+	//headerPageNum; //PageID
 
-	Page headerPage = file->readPage(headerPageNum);
+	//Page headerPage = file->readPage(headerPageNum);
 
 	//BlobFile indexFile = ;
 
-	IndexMetaInfo metaInfo = (IndexMetaInfo)headerPage;
-	FileScan fs(metaInfo.relationName, bufMgr);
-	RecordId nextRecord;
-	fs.scanNext(nextRecord);
+	//IndexMetaInfo metaInfo = (IndexMetaInfo)headerPage;
+	//FileScan fs(metaInfo.relationName, bufMgr);
+	//RecordId nextRecord;
+	//fs.scanNext(nextRecord);
 	
 }
 
