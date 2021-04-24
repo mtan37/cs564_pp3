@@ -51,7 +51,55 @@ BTreeIndex::~BTreeIndex()
 
 void BTreeIndex::insertEntry(const void *key, const RecordId rid) 
 {
+    // Add your code below. Please do not remove this line.
 	// my part to work on
+
+	int keyVal = *(int*)key;
+	int targetPageNum = rid.page_number;
+	int targetSlotNum = rid.slot_number;
+	
+	Page* rootPage = &(file->readPage(rootPageNum));
+	NonLeafNodeInt* rootNode = (NonLeafNodeInt*)rootPage;
+
+	//iterate children to find appropriate leafnode (needs to be written recursive to handle multiple layers)
+	LeafNodeInt* targetNode;
+	outer:for (int i = 0; i < sizeof(rootNode->pageNoArray); i++) {
+		NonLeafNodeInt* childNode = (NonLeafNodeInt*)(&(file->readPage(rootNode->pageNoArray[i])));
+		for (int j = 0; j < sizeof(childNode->keyArray); j++) {
+			if (childNode->keyArray[j] == keyVal) {
+				targetNode = (LeafNodeInt*)(&(file->readPage(childNode->keyArray[j])));
+				goto loopend;
+			}
+		}
+	}
+	loopend:
+
+	//insert record
+	//full node
+	if (sizeof(targetNode->keyArray) == INTARRAYLEAFSIZE) {
+
+	} else { //not full node
+
+	}
+
+	//handle rebalancing
+
+
+
+	//test
+
+	rootPageNum; //PageID
+	headerPageNum; //PageID
+
+	Page headerPage = file->readPage(headerPageNum);
+
+	//BlobFile indexFile = ;
+
+	IndexMetaInfo metaInfo = (IndexMetaInfo)headerPage;
+	FileScan fs(metaInfo.relationName, bufMgr);
+	RecordId nextRecord;
+	fs.scanNext(nextRecord);
+	
 }
 
 // -----------------------------------------------------------------------------
