@@ -64,31 +64,41 @@ void BTreeIndex::startScan(const void* lowValParm,
 				   const Operator highOpParm)
 {
     scanExecuting = true;
+    
     if (lowOpParm != GT && lowOpParm !=GTE){
         throw BadOpcodesException();
-    }else if(highOpParm != LT && highOpParm != LTE){
+    } else if(highOpParm != LT && highOpParm != LTE){
         throw BadOpcodesException();
     }
+    
     lowOp = lowOpParm;
     highOp = highOpParm;
     switch (attributeType){
-        case INTEGER:{
+    
+        case INTEGER: {
             int lowVal = *(int *)lowValParm;
             int highVal = *(int *)highValParm;
             startScanInt(lowVal, lowOpParm, highVal, highOpParm);            
-        break;}
+        break; }
+    
         case DOUBLE:{
-        std::cout << "Scan is not started: Index data type DOUBLE is not implemented" << std::endl;
+        std::cout << "Scan is not started: "
+            << Index data type DOUBLE is not implemented" << std::endl;
         scanExecuting = false;
-        return;}
+        return; }
+    
         case STRING:{
-        std::cout << "Scan is not started: Index data type STRING is not implemented" << std::endl;
+        std::cout << "Scan is not started: "
+            << "Index data type STRING is not implemented" << std::endl;
         scanExecuting = false;
-        return;}
+        return; }
+    
         default:{
-        std::cout << "Scan is not started: Unkonwn index data type." << std::endl;
+        std::cout << "Scan is not started: "
+            << "Unkonwn index data type." << std::endl;
         scanExecuting = false;
-        return;}
+        return; }
+    
     }    
 }
 
@@ -99,8 +109,23 @@ void BTreeIndex::startScan(const void* lowValParm,
 void BTreeIndex::startScanInt(const int lowVal, const Operator lowOp, const int highVal, const Operator highOp){
     if (lowVal > highVal)
         throw BadScanrangeException();
-    //traverse to the first leaf node
-    //TODO    
+    Page *rootPage = &(file->readPage(rootPageNum));
+    NonLeafNodeInt* currNode = (NonLeafNodeInt *)rootPage;
+    //traverse to the non-leaf a level above leaf node
+    while (currNode->level != 1){
+        PageId nextPageId = NULL;
+        for (int i = 0; i < INTARRAYNONLEAFSIZE; i++){
+           
+            if ((currNode->keyArray)[i] >= lowVale){
+                nextPageId = (currNode->pageNoArray)[i];
+                break;
+            }
+        
+        }    
+        
+        if ((currNode->keyArray)[INTARRAYNONLEAFSIZE - 1])
+    } 
+    //TODO needs a length field
 }
 
 // -----------------------------------------------------------------------------
