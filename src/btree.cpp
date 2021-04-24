@@ -63,6 +63,7 @@ void BTreeIndex::startScan(const void* lowValParm,
 				   const void* highValParm,
 				   const Operator highOpParm)
 {
+    // Add your code below. Please do not remove this line.
     scanExecuting = true;
     
     if (lowOpParm != GT && lowOpParm !=GTE){
@@ -73,6 +74,7 @@ void BTreeIndex::startScan(const void* lowValParm,
     
     lowOp = lowOpParm;
     highOp = highOpParm;
+    
     switch (attributeType){
     
         case INTEGER: {
@@ -83,7 +85,7 @@ void BTreeIndex::startScan(const void* lowValParm,
     
         case DOUBLE:{
         std::cout << "Scan is not started: "
-            << Index data type DOUBLE is not implemented" << std::endl;
+            << "Index data type DOUBLE is not implemented" << std::endl;
         scanExecuting = false;
         return; }
     
@@ -100,6 +102,7 @@ void BTreeIndex::startScan(const void* lowValParm,
         return; }
     
     }    
+
 }
 
 // -----------------------------------------------------------------------------
@@ -107,25 +110,67 @@ void BTreeIndex::startScan(const void* lowValParm,
 // -----------------------------------------------------------------------------
 
 void BTreeIndex::startScanInt(const int lowVal, const Operator lowOp, const int highVal, const Operator highOp){
+    
     if (lowVal > highVal)
         throw BadScanrangeException();
-    Page *rootPage = &(file->readPage(rootPageNum));
-    NonLeafNodeInt* currNode = (NonLeafNodeInt *)rootPage;
+    else if (lowVal == highVal && (lowOp != GTE || highOp != LTE))
+        throw BadScanrangeException();
+    
+    Page rootPage = file->readPage(rootPageNum);
+    NonLeafNodeInt* currNode = (NonLeafNodeInt *)&rootPage;
     //traverse to the non-leaf a level above leaf node
-    while (currNode->level != 1){
-        PageId nextPageId = NULL;
-        for (int i = 0; i < INTARRAYNONLEAFSIZE; i++){
+    PageId nextPageId = 0;
+    LeafNodeInt * leafNode = NULL;
+
+    while (true){
+        for (int i = 0; i < currNode->length; i++){
            
-            if ((currNode->keyArray)[i] >= lowVale){
+            if ((currNode->keyArray)[i] >= lowVal){
                 nextPageId = (currNode->pageNoArray)[i];
                 break;
             }
         
         }    
         
-        if ((currNode->keyArray)[INTARRAYNONLEAFSIZE - 1])
-    } 
-    //TODO needs a length field
+        if ((currNode->keyArray)[currNode->length - 1] < lowVal){
+            nextPageId = (currNode->pageNoArray)[currNode->length];
+        }
+
+        if (currNode->level != 1){
+            Page pageNode = file->readPage(nextPageId);
+            currNode = (NonLeafNodeInt *)&pageNode;
+            continue;
+        } else {
+            //leaf node located
+            Page pageNode = file->readPage(nextPageId);
+            currentPageData = &pageNode; 
+            currentPageNum = nextPageId; 
+            leafNode = (LeafNodeInt *)currentPageData;    
+            break;
+        }
+
+    }
+ 
+    if (leafNode == NULL){
+        //TODO throw exeception, something wrong happened
+    }
+
+    //find the first record that is equal or greater than the low val
+    for (int i = 0; i < leafNode->length; i++){
+
+        if (lowOp == GTE && (leafNode->keyArray)[i] >= lowVal){
+            nextEntry = i;
+            return;
+        }
+        else if (lowOp == GT && (leafNode->keyArray)[i] > lowVal){
+            nextEntry = i;
+            return;
+        }
+
+    }
+    
+    //no matching entry in the range found, end the scan
+    //TODO
 }
 
 // -----------------------------------------------------------------------------
