@@ -46,15 +46,24 @@ BTreeIndex::~BTreeIndex()
 }
 
 // -----------------------------------------------------------------------------
-// helper methods for insert
+// BTreeIndex:belongsBefore -- helper method for insert
 // -----------------------------------------------------------------------------
+
 bool BTreeIndex::belongsBefore(int key, int sortedKeyList[]) {
 	return sortedKeyList[0] >= key;
 }
 
+// -----------------------------------------------------------------------------
+// BTreeIndex:belongsAfter -- helper method for insert
+// -----------------------------------------------------------------------------
+
 bool BTreeIndex::belongsAfter(int key, int sortedKeyList[], int keyListLength) {
 	return sortedKeyList[keyListLength - 1] <= key;
 }
+
+// -----------------------------------------------------------------------------
+// BTreeIndex:belongsInRange -- helper method for insert
+// -----------------------------------------------------------------------------
 
 int BTreeIndex::belongsInRange(int key, int sortedKeyList[], int keyListLength) {
 	
@@ -71,8 +80,73 @@ int BTreeIndex::belongsInRange(int key, int sortedKeyList[], int keyListLength) 
 	return -1;
 }
 
+// -----------------------------------------------------------------------------
+// BTreeIndex:insertInNode -- helper method for insert
+// -----------------------------------------------------------------------------
+
 void BTreeIndex::insertInNode(LeafNodeInt* nodeRef, int key, RecordId rid) {
-	
+
+	//check if key belongs in the beginning
+	if (belongsBefore(key, nodeRef->keyArray)) {
+
+		//shift existing keys upwards
+		for (int i = 0; i < nodeRef->length - 1; i++) {
+			nodeRef->keyArray[i + 1] = nodeRef->keyArray[i];
+			nodeRef->ridArray[i + 1] = nodeRef->ridArray[i];
+		}
+
+		//insert key at first index
+		nodeRef->keyArray[0] = key;
+		nodeRef->ridArray[0] = rid;
+		nodeRef->length++;
+		return;
+	}
+
+	//check if key belongs between existing keys
+	int index = belongsInRange(key, nodeRef->keyArray, nodeRef->length);
+	if (index != -1) {
+
+		//shift existing keys upwards
+		for (int j = index; j < nodeRef->length - 1; j++) {
+			nodeRef->keyArray[index + 1] = nodeRef->keyArray[j];
+			nodeRef->ridArray[index + 1] = nodeRef->ridArray[j];
+		}
+
+		//fill in new value in the gap
+		nodeRef->keyArray[index] = key;
+		nodeRef->ridArray[index] = rid;
+		nodeRef->length++;
+		return;
+	}
+
+	//got to the end without finding a spot to insert, so key belongs at the end of the node
+	nodeRef->keyArray[nodeRef->length] = key;
+	nodeRef->ridArray[nodeRef->length] = rid;
+	nodeRef->length++;
+}
+
+// -----------------------------------------------------------------------------
+// BTreeIndex:splitBetweenNodes -- helper method for insert
+// -----------------------------------------------------------------------------
+
+void BTreeIndex::splitBetweenNodes(LeafNodeInt* fullNode, LeafNodeInt* newNode, int newKey, RecordId newRid) {
+
+	//split keys between two nodes
+	for (int i = 0; i < INTARRAYLEAFSIZE / 2; i++) {
+		
+		//move keys to new node
+		newNode->keyArray[i] = fullNode->keyArray[i];
+		newNode->ridArray[i] = fullNode->ridArray[i];
+		newNode->length++;
+		
+		//fill missing space with remaining keys
+		fullNode->keyArray[i] = fullNode->keyArray[(INTARRAYLEAFSIZE / 2) + i];
+		fullNode->ridArray[i] = fullNode->ridArray[(INTARRAYLEAFSIZE / 2) + i];
+		fullNode->length--;
+	}
+
+	//insert the new value into the newly created node
+	insertInNode(newNode, newKey, newRid);
 }
 
 // -----------------------------------------------------------------------------
@@ -150,43 +224,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	//case where no need to rebalance
 	if (targetNode->length < INTARRAYLEAFSIZE) {
 
-		//check if key belongs in the beginning
-		if (belongsBefore(keyVal, targetNode->keyArray)) {
-
-			//shift existing keys upwards
-			for (int i = 0; i < targetNode->length - 1; i++) {
-				targetNode->keyArray[i + 1] = targetNode->keyArray[i];
-				targetNode->ridArray[i + 1] = targetNode->ridArray[i];
-			}
-
-			//insert key at first index
-			targetNode->keyArray[0] = keyVal;
-			targetNode->ridArray[0] = rid;
-			targetNode->length++;
-			goto finishedinsert;
-		}
-
-		//check if key belongs between existing keys
-		int index = belongsInRange(keyVal, targetNode->keyArray, targetNode->length);
-		if (index != -1) {
-
-			//shift existing keys upwards
-			for (int j = index; j < targetNode->length - 1; j++) {
-				targetNode->keyArray[index + 1] = targetNode->keyArray[j];
-				targetNode->ridArray[index + 1] = targetNode->ridArray[j];
-			}
-
-			//fill in new value in the gap
-			targetNode->keyArray[index] = keyVal;
-			targetNode->ridArray[index] = rid;
-			targetNode->length++;
-			goto finishedinsert;
-		}
-
-		//got to the end without finding a spot to insert, so key belongs at the end of the node
-		targetNode->keyArray[targetNode->length] = keyVal;
-		targetNode->ridArray[targetNode->length] = rid;
-		targetNode->length++;
+		insertInNode(targetNode, keyVal, rid);
 
 		finishedinsert:
 
@@ -207,8 +245,6 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 		int midLeftIndex = (INTARRAYLEAFSIZE / 2) - 1;
 		int midRightIndex = (INTARRAYLEAFSIZE) / 2;
 
-		//TODO these split methods don't actually insert the new key/rid yet
-
 		//key falls on left half, newLeaf is splitting off to the left
 		if (keyVal < midLeftIndex) {
 
@@ -219,19 +255,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 			//TODO push up key
 			int midKey = targetNode->keyArray[midLeftIndex];
 
-			//split keys between two nodes
-			for (int i = 0; i < INTARRAYLEAFSIZE / 2; i++) {
-				
-				//move keys to new node
-				newLeafNode->keyArray[i] = targetNode->keyArray[i];
-				newLeafNode->ridArray[i] = targetNode->ridArray[i];
-				newLeafNode->length++;
-				
-				//fill missing space with remaining keys
-				targetNode->keyArray[i] = targetNode->keyArray[(INTARRAYLEAFSIZE / 2) + i];
-				targetNode->ridArray[i] = targetNode->ridArray[(INTARRAYLEAFSIZE / 2) + i];
-				targetNode->length--;
-			}	
+			splitBetweenNodes(targetNode, newLeafNode, keyVal, rid);
 
 			goto postsplit;
 		}
@@ -247,19 +271,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 			//TODO push up key
 			int midKey = targetNode->keyArray[midRightIndex];
 
-			//split keys between two nodes
-			for (int i = 0; i < INTARRAYLEAFSIZE / 2; i++) {
-				
-				//move keys to new node
-				newLeafNode->keyArray[i] = targetNode->keyArray[i];
-				newLeafNode->ridArray[i] = targetNode->ridArray[i];
-				newLeafNode->length++;
-				
-				//fill missing space with remaining keys
-				targetNode->keyArray[i] = targetNode->keyArray[(INTARRAYLEAFSIZE / 2) + i];
-				targetNode->ridArray[i] = targetNode->ridArray[(INTARRAYLEAFSIZE / 2) + i];
-				targetNode->length--;
-			}
+			splitBetweenNodes(targetNode, newLeafNode, keyVal, rid);
 
 			goto postsplit;
 		}
@@ -274,19 +286,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 			//TODO push up key
 			int midKey = keyVal;
 
-			//split keys between two nodes
-			for (int i = 0; i < INTARRAYLEAFSIZE / 2; i++) {
-				
-				//move keys to new node
-				newLeafNode->keyArray[i] = targetNode->keyArray[i];
-				newLeafNode->ridArray[i] = targetNode->ridArray[i];
-				newLeafNode->length++;
-				
-				//fill missing space with remaining keys
-				targetNode->keyArray[i] = targetNode->keyArray[(INTARRAYLEAFSIZE / 2) + i];
-				targetNode->ridArray[i] = targetNode->ridArray[(INTARRAYLEAFSIZE / 2) + i];
-				targetNode->length--;
-			}
+			splitBetweenNodes(targetNode, newLeafNode, keyVal, rid);
 
 			goto postsplit;
 		}
