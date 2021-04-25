@@ -180,6 +180,56 @@ void BTreeIndex::startScanInt(const int lowVal, const Operator lowOp, const int 
 void BTreeIndex::scanNext(RecordId& outRid) 
 {
     // Add your code below. Please do not remove this line.
+    //load the next record entry
+    Page currPage = file->readPage(currentPageNum);
+    LeafNodeInt *currNode = (LeafNodeInt *)&currPage;
+    RecordId currRid = (currNode->ridArray)[nextEntry];
+    
+    Page metaPage = file->readPage(headerPageNum);
+    IndexMetaInfo *metaData = (IndexMetaInfo *)&metaPage;
+    FileScan *scanner = new FileScan(metaData->relationName, bufMgr);
+    
+    //check if the loaded record satisfy the range condition 
+    scanner->scanNext(currRid);
+    std::string currRecord = scanner->getRecord();
+    int keyVal = *(int *) currRecord.c_str() + attrByteOffset;
+    
+    //key value validation
+    switch (lowOp){
+        case GT:{
+            if (keyVal <= lowValInt)
+                throw IndexScanCompletedException();
+        }
+        case GTE: {
+            if (keyVal < lowValInt)
+                throw IndexScanCompletedException();
+        }
+        default:{
+            throw BadScanrangeException();
+        }
+    }
+
+    switch (highOp){
+        case LT:{
+            if (keyVal >= highValInt)
+                throw IndexScanCompletedException();
+        }
+        case LTE:{
+            if (keyVal > highValInt)
+                throw IndexScanCompletedException();
+        }
+        default:{
+            throw BadScanrangeException();
+        }
+    }   
+ 
+    //move the cursor forward
+    if (nextEntry + 1 >= INTARRAYLEAFSIZE){
+        currentPageNum = currNode->rightSibPageNo;
+        nextEntry = 0;
+    } else {
+        nextEntry++;
+    }
 }
 
 // -----------------------------------------------------------------------------
