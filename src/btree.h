@@ -327,7 +327,7 @@ class BTreeIndex {
   int belongsInRange(int key, int sortedKeyList[], int keyListLength);
 
   void insertInNode(LeafNodeInt* nodeRef, int key, RecordId rid);
-  void splitBetweenNodes(LeafNodeInt* fullNode, LeafNodeInt* newNode, int newKey, RecordId newRid);
+  void splitBetweenNodes(LeafNodeInt* fullNode, LeafNodeInt* newNode);
 
 
  public:

@@ -129,7 +129,7 @@ void BTreeIndex::insertInNode(LeafNodeInt* nodeRef, int key, RecordId rid) {
 // BTreeIndex:splitBetweenNodes -- helper method for insert
 // -----------------------------------------------------------------------------
 
-void BTreeIndex::splitBetweenNodes(LeafNodeInt* fullNode, LeafNodeInt* newNode, int newKey, RecordId newRid) {
+void BTreeIndex::splitBetweenNodes(LeafNodeInt* fullNode, LeafNodeInt* newNode) {
 
 	//split keys between two nodes
 	for (int i = 0; i < INTARRAYLEAFSIZE / 2; i++) {
@@ -145,8 +145,6 @@ void BTreeIndex::splitBetweenNodes(LeafNodeInt* fullNode, LeafNodeInt* newNode, 
 		fullNode->length--;
 	}
 
-	//insert the new value into the newly created node
-	insertInNode(newNode, newKey, newRid);
 }
 
 // -----------------------------------------------------------------------------
@@ -226,8 +224,6 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 
 		insertInNode(targetNode, keyVal, rid);
 
-		finishedinsert:
-
 		return; //all done :)
 
 	} else if (targetNode->length == INTARRAYLEAFSIZE) {
@@ -255,7 +251,8 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 			//TODO push up key
 			int midKey = targetNode->keyArray[midLeftIndex];
 
-			splitBetweenNodes(targetNode, newLeafNode, keyVal, rid);
+			splitBetweenNodes(targetNode, newLeafNode);
+			insertInNode(newLeafNode, keyVal, rid);
 
 			goto postsplit;
 		}
@@ -271,7 +268,8 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 			//TODO push up key
 			int midKey = targetNode->keyArray[midRightIndex];
 
-			splitBetweenNodes(targetNode, newLeafNode, keyVal, rid);
+			splitBetweenNodes(targetNode, newLeafNode);
+			insertInNode(newLeafNode, keyVal, rid);
 
 			goto postsplit;
 		}
@@ -286,7 +284,8 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 			//TODO push up key
 			int midKey = keyVal;
 
-			splitBetweenNodes(targetNode, newLeafNode, keyVal, rid);
+			splitBetweenNodes(targetNode, newLeafNode);
+			insertInNode(newLeafNode, keyVal, rid);
 
 			goto postsplit;
 		}
