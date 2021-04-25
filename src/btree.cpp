@@ -99,29 +99,23 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	continuewhile:
 	while (nextNode->level != 1) {
 
-		//iterate children of current node
-		for (int i = 0; i < nextNode->length; i++) {
-			NonLeafNodeInt* childNode = (NonLeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[i])));
-
-			//see if children of current node have appropriate place to insert key
-			for (int j = 0; j < childNode->length; j++) {
-
-				//perfect match for key
-				if (childNode->keyArray[j] == keyVal) {
-					nextNode = childNode;
-					//nextNode = (NonLeafNodeInt*)(&(file->readPage(childNode->pageNoArray[j])));
-					goto continuewhile;
-				}
-
-				//key does not appear directly but falls in range
-				if (j > 0 && j < childNode->length - 1) { //bounds check
-					if (childNode->keyArray[j - 1] <= keyVal && childNode->keyArray[j + 1] >= keyVal) { //TODO this needs to be changed I think.
-						nextNode = (NonLeafNodeInt*)(&(file->readPage(childNode->pageNoArray[j])));
-						goto continuewhile; 
-					}
-				}
-			}
+		//leftmost case (key falls before beginning of node list)
+		if (belongsBefore(keyVal, nextNode->keyArray)) {
+			nextNode = (NonLeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[0])));
+			goto continuewhile;
 		}
+
+		//middle case
+		int index = belongsInRange(keyVal, nextNode->keyArray, nextNode->length);
+		if (index != -1) {
+			nextNode = (NonLeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[index])));
+			goto continuewhile;
+		}
+
+		//rightmost case (key falls at the end of the node list)
+		nextNode = (NonLeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[nextNode->length - 1])));
+		goto continuewhile;
+
 	}
 
 	foundlevel1node:
@@ -170,6 +164,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	// INSERT RECORD INTO LEAF NODE
 	//
 
+	//case where no need to rebalance
 	if (targetNode->length < INTARRAYLEAFSIZE) {
 
 		//check if key belongs in the beginning
@@ -184,6 +179,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 			//insert key at first index
 			targetNode->keyArray[0] = keyVal;
 			targetNode->ridArray[0] = rid;
+			targetNode->length++;
 			goto finishedinsert;
 		}
 
@@ -200,7 +196,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 			//fill in new value in the gap
 			targetNode->keyArray[index] = keyVal;
 			targetNode->ridArray[index] = rid;
-
+			targetNode->length++;
 			goto finishedinsert;
 		}
 
@@ -216,10 +212,13 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 		// REBALANCE AND MERGE
 		//
 
-		Page* newLeaf;
-		PageId newLeafId;
-		bufMgr->allocPage(file, newLeafId, newLeaf);
-		LeafNodeInt* newLeafNode = (LeafNodeInt*)newLeaf;
+		//Page* newLeaf;
+		//PageId newLeafId;
+		//bufMgr->allocPage(file, newLeafId, newLeaf);
+		//LeafNodeInt* newLeafNode = (LeafNodeInt*)newLeaf;
+
+		//newLeafNode->rightSibPageNo = targetNode.pageNo;
+
 	}
 	
 }
