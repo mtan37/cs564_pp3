@@ -115,48 +115,27 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 		//rightmost case (key falls at the end of the node list)
 		nextNode = (NonLeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[nextNode->length - 1])));
 		goto continuewhile;
-
 	}
-
-	foundlevel1node:
 
 	//get LeafNode (targetNode) from level 1 NonLeafNode (nextNode)
 
 	LeafNodeInt* targetNode;
 
-	//key belongs at the start of targetNode's leaf nodes
-	LeafNodeInt* firstNode = (LeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[0])));
-	if (belongsBefore(keyVal, firstNode->keyArray)) {
-		targetNode = firstNode;
+	//leftmost case (key falls before beginning of leaf node list)
+	if (belongsBefore(keyVal, nextNode->keyArray)) {
+		targetNode = (LeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[0])));
 		goto foundleafnode;
 	}
 
-	//key belongs at the end of targetNode's leaf nodes
-	LeafNodeInt* lastNode = (LeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[nextNode->length - 1])));
-	if (belongsAfter(keyVal, lastNode->keyArray, lastNode->length)) {
-		targetNode = lastNode;
+	//middle case
+	int index = belongsInRange(keyVal, nextNode->keyArray, nextNode->length);
+	if (index != -1) {
+		targetNode = (LeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[index])));
 		goto foundleafnode;
 	}
 
-	//key belongs in the midst of targetNode's leaf nodes
-	for (int i = 0; i < nextNode->length; i++) {
-		LeafNodeInt* childNode = (LeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[i])));
-		int index = belongsInRange(keyVal, childNode->keyArray, childNode->length);
-		if (index != -1) {
-			targetNode = childNode;
-			goto foundleafnode;
-		} else {
-			//handle edge case where key falls between two nodes
-			LeafNodeInt* adjacentNode = (LeafNodeInt*)(&(file->readPage(childNode->rightSibPageNo)));
-			if (belongsAfter(keyVal, childNode->keyArray, childNode->length) && belongsBefore(keyVal, adjacentNode->keyArray)) {
-				targetNode = childNode;
-				goto foundleafnode;
-			}
-		}
-	}
-
-	//did not find a leaf node
-	std::cout << "[ERROR] Did not find a leaf node, something went wrong above";
+	//rightmost case (key falls at the end of the leaf node list)
+	targetNode = (LeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[nextNode->length - 1])));
 
 	foundleafnode:
 
