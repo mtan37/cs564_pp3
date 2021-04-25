@@ -82,7 +82,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	//TODO handle edge cases where the tree hasn't yet been filled up (need to check instructions to see expectations)
 
 	//
-	// setup for insertion
+	// SETUP FOR INSERTION
 	//
 
 	int keyVal = *(int*)key;	
@@ -90,7 +90,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	NonLeafNodeInt* rootNode = (NonLeafNodeInt*)rootPage;
 
 	//
-	// traverse to appropriate leafnode to insert into from root
+	// TRAVERSE FROM ROOT TO FIND LEAF NODE
 	//
 
 	NonLeafNodeInt* nextNode = rootNode;
@@ -166,7 +166,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	foundleafnode:
 
 	//
-	// insert record
+	// INSERT RECORD INTO LEAF NODE
 	//
 
 	//check if key belongs in the beginning
@@ -185,23 +185,19 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	}
 
 	//check if key belongs between existing keys
-	for (int i = 0; i < targetNode->length - 1; i++) {
-
-		//perform the insert if the key value is between adjacent keys
-		if (targetNode->keyArray[i] <= keyVal && targetNode->keyArray[i + 1] >= keyVal) {
-			
-			//shift existing keys upwards
-			for (int j = i; j < targetNode->length - 1; j++) {
-				targetNode->keyArray[i + 1] = targetNode->keyArray[j];
-				targetNode->ridArray[i + 1] = targetNode->ridArray[j];
+	int index = belongsInRange(keyVal, targetNode->keyArray, targetNode->length);
+	if (index != -1) {
+		//shift existing keys upwards
+			for (int j = index; j < targetNode->length - 1; j++) {
+				targetNode->keyArray[index + 1] = targetNode->keyArray[j];
+				targetNode->ridArray[index + 1] = targetNode->ridArray[j];
 			}
 
 			//fill in new value in the gap
-			targetNode->keyArray[i] = keyVal;
-			targetNode->ridArray[i] = rid;
+			targetNode->keyArray[index] = keyVal;
+			targetNode->ridArray[index] = rid;
 
 			goto finishedinsert;
-		}
 	}
 
 	//got to the end without finding a spot to insert, so key belongs at the end of the node
@@ -209,8 +205,11 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	targetNode->ridArray[targetNode->length] = rid;
 	targetNode->length++;
 
-	//all three cases for insertion will end up concluding here
 	finishedinsert:
+
+	//
+	// REBALANCE AND MERGE (IF NECESSARY)
+	//	
 
 	//check if node has been filled up after insert
 	if (targetNode->length == INTARRAYLEAFSIZE) {
