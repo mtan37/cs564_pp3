@@ -52,14 +52,18 @@ BTreeIndex::~BTreeIndex()
 void BTreeIndex::insertEntry(const void *key, const RecordId rid) 
 {
     // Add your code below. Please do not remove this line.
-	// my part to work on
 
-	int keyVal = *(int*)key;
-	//int targetPageNum = rid.page_number;
-	//int targetSlotNum = rid.slot_number;
-	
+	//
+	// setup for insertion
+	//
+
+	int keyVal = *(int*)key;	
 	Page* rootPage = &(file->readPage(rootPageNum));
 	NonLeafNodeInt* rootNode = (NonLeafNodeInt*)rootPage;
+
+	//
+	// find appropriate leafnode
+	//
 
 	//iterate children to find appropriate leafnode (needs to be written recursive to handle multiple layers)
 	// something like while(level != 1) 
@@ -75,52 +79,59 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	}
 	foundleafnode:
 
-	//insert record
-	//full node
-	if (targetNode->length == INTARRAYLEAFSIZE) {
+	//
+	// insert record
+	//
 
-		//split
+	//check if key belongs in the beginning
+	if (targetNode->keyArray[0] >= keyVal) {
 
-	} else { //not full node, no need to split
-		
-		//find where to insert new key
+		//shift existing keys upwards
 		for (int i = 0; i < targetNode->length - 1; i++) {
-			if (targetNode->keyArray[i] <= keyVal && targetNode->keyArray[i + 1] >= keyVal) {
-				
-				//shift existing keys upwards
-				for (int j = i; j < targetNode->length - 1; j++) {
-					targetNode->keyArray[i + 1] = targetNode->keyArray[j];
-					targetNode->ridArray[i + 1] = targetNode->ridArray[j];
-				}
-				//fill in new value in the gap
-				targetNode->keyArray[i] = keyVal;
-				targetNode->ridArray[i] = rid;
-				goto finishedshift;
-			}
+			targetNode->keyArray[i + 1] = targetNode->keyArray[i];
+			targetNode->ridArray[i + 1] = targetNode->ridArray[i];
 		}
-		finishedshift:
-		targetNode->keyArray[targetNode->length] = keyVal;
-		targetNode->ridArray[targetNode->length] = rid;
-		targetNode->length++;
+
+		//insert key at start
+		targetNode->keyArray[0] = keyVal;
+		targetNode->ridArray[0] = rid;
+		goto finishedinsert;
 	}
 
-	//handle rebalancing
+	//check if key belongs between existing key
+	for (int i = 0; i < targetNode->length - 1; i++) {
 
+		//perform the insert if the values align
+		if (targetNode->keyArray[i] <= keyVal && targetNode->keyArray[i + 1] >= keyVal) {
+			
+			//shift existing keys upwards
+			for (int j = i; j < targetNode->length - 1; j++) {
+				targetNode->keyArray[i + 1] = targetNode->keyArray[j];
+				targetNode->ridArray[i + 1] = targetNode->ridArray[j];
+			}
 
+			//fill in new value in the gap
+			targetNode->keyArray[i] = keyVal;
+			targetNode->ridArray[i] = rid;
 
-	//test stuff below here
+			goto finishedinsert;
+		}
+	}
 
-	//rootPageNum; //PageID
-	//headerPageNum; //PageID
+	//got to the end without finding a spot to insert, so key belongs at the end of the node
+	targetNode->keyArray[targetNode->length] = keyVal;
+	targetNode->ridArray[targetNode->length] = rid;
+	targetNode->length++;
 
-	//Page headerPage = file->readPage(headerPageNum);
+	//all three cases will end up concluding here
+	finishedinsert:
 
-	//BlobFile indexFile = ;
+	//check if node has been filled up after insert
+	if (targetNode->length == INTARRAYLEAFSIZE) {
 
-	//IndexMetaInfo metaInfo = (IndexMetaInfo)headerPage;
-	//FileScan fs(metaInfo.relationName, bufMgr);
-	//RecordId nextRecord;
-	//fs.scanNext(nextRecord);
+		//split + rebalance
+
+	}
 	
 }
 
