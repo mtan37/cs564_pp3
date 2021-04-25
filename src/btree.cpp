@@ -241,58 +241,28 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 		int midLeftIndex = (INTARRAYLEAFSIZE / 2) - 1;
 		int midRightIndex = (INTARRAYLEAFSIZE) / 2;
 
-		//key falls on left half, newLeaf is splitting off to the left
-		if (keyVal < midLeftIndex) {
+		int midKey;
 
-			//readjust pointers
-			//TODO need to set left page rightNo to newLeaf
-			newLeafNode->rightSibPageNo = curPageNo;
-
-			//TODO push up key
-			int midKey = targetNode->keyArray[midLeftIndex];
-
-			splitBetweenNodes(targetNode, newLeafNode);
-			insertInNode(newLeafNode, keyVal, rid);
-
-			goto postsplit;
+		if (keyVal < midLeftIndex) { //key falls on left half
+			midKey = targetNode->keyArray[midLeftIndex];
+		} else if (keyVal > midRightIndex) { //key falls on right half
+			midKey = targetNode->keyArray[midRightIndex];
+		} else if (keyVal >= midLeftIndex && keyVal <= midRightIndex) { //key falls in center
+			midKey = keyVal;
 		}
 
-		//key falls on right half, newLeaf is splitting off to the right
-		if (keyVal > midRightIndex) {
-			
-			//readjust pointers
-			int oldRightNo = targetNode->rightSibPageNo;
-			targetNode->rightSibPageNo = newLeafId;
-			newLeafNode->rightSibPageNo = oldRightNo;
+		//readjust pointers
+		int oldRightNo = targetNode->rightSibPageNo;
+		targetNode->rightSibPageNo = newLeafId;
+		newLeafNode->rightSibPageNo = oldRightNo;
 
-			//TODO push up key
-			int midKey = targetNode->keyArray[midRightIndex];
+		//split and insert
+		splitBetweenNodes(targetNode, newLeafNode);
+		insertInNode(newLeafNode, keyVal, rid);
 
-			splitBetweenNodes(targetNode, newLeafNode);
-			insertInNode(newLeafNode, keyVal, rid);
-
-			goto postsplit;
-		}
-
-		//key falls in the center, choosing to split newLeaf to the left 
-		if (keyVal >= midLeftIndex && keyVal <= midRightIndex) {
-
-			//readjust pointers
-			//TODO need to set left page rightNo to newLeaf
-			newLeafNode->rightSibPageNo = curPageNo;
-
-			//TODO push up key
-			int midKey = keyVal;
-
-			splitBetweenNodes(targetNode, newLeafNode);
-			insertInNode(newLeafNode, keyVal, rid);
-
-			goto postsplit;
-		}
-
-		postsplit:
-
-		//TODO handle recursive non-leaf rebalancing
+		//TODO push up key, handle recursive non-leaf rebalancing
+		
+		return;
 
 	}
 	
