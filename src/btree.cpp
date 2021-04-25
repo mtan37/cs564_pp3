@@ -71,6 +71,10 @@ int BTreeIndex::belongsInRange(int key, int sortedKeyList[], int keyListLength) 
 	return -1;
 }
 
+void BTreeIndex::insertInNode(LeafNodeInt* nodeRef, int key, RecordId rid) {
+	
+}
+
 // -----------------------------------------------------------------------------
 // BTreeIndex::insertEntry
 // -----------------------------------------------------------------------------
@@ -186,19 +190,110 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 
 		finishedinsert:
 
-		return; //all done
+		return; //all done :)
 
 	} else if (targetNode->length == INTARRAYLEAFSIZE) {
 		//
 		// REBALANCE AND MERGE
 		//
 
-		//Page* newLeaf;
-		//PageId newLeafId;
-		//bufMgr->allocPage(file, newLeafId, newLeaf);
-		//LeafNodeInt* newLeafNode = (LeafNodeInt*)newLeaf;
+		PageId newLeafId;
+		Page* newLeaf = &(file->allocatePage(newLeafId));
+		LeafNodeInt* newLeafNode = (LeafNodeInt*)newLeaf;
 
-		//newLeafNode->rightSibPageNo = targetNode.pageNo;
+		Page* curLeafPage = (Page*)targetNode;
+		int curPageNo = curLeafPage->page_number();
+
+		int midLeftIndex = (INTARRAYLEAFSIZE / 2) - 1;
+		int midRightIndex = (INTARRAYLEAFSIZE) / 2;
+
+		//TODO these split methods don't actually insert the new key/rid yet
+
+		//key falls on left half, newLeaf is splitting off to the left
+		if (keyVal < midLeftIndex) {
+
+			//readjust pointers
+			//TODO need to set left page rightNo to newLeaf
+			newLeafNode->rightSibPageNo = curPageNo;
+
+			//TODO push up key
+			int midKey = targetNode->keyArray[midLeftIndex];
+
+			//split keys between two nodes
+			for (int i = 0; i < INTARRAYLEAFSIZE / 2; i++) {
+				
+				//move keys to new node
+				newLeafNode->keyArray[i] = targetNode->keyArray[i];
+				newLeafNode->ridArray[i] = targetNode->ridArray[i];
+				newLeafNode->length++;
+				
+				//fill missing space with remaining keys
+				targetNode->keyArray[i] = targetNode->keyArray[(INTARRAYLEAFSIZE / 2) + i];
+				targetNode->ridArray[i] = targetNode->ridArray[(INTARRAYLEAFSIZE / 2) + i];
+				targetNode->length--;
+			}	
+
+			goto postsplit;
+		}
+
+		//key falls on right half, newLeaf is splitting off to the right
+		if (keyVal > midRightIndex) {
+			
+			//readjust pointers
+			int oldRightNo = targetNode->rightSibPageNo;
+			targetNode->rightSibPageNo = newLeafId;
+			newLeafNode->rightSibPageNo = oldRightNo;
+
+			//TODO push up key
+			int midKey = targetNode->keyArray[midRightIndex];
+
+			//split keys between two nodes
+			for (int i = 0; i < INTARRAYLEAFSIZE / 2; i++) {
+				
+				//move keys to new node
+				newLeafNode->keyArray[i] = targetNode->keyArray[i];
+				newLeafNode->ridArray[i] = targetNode->ridArray[i];
+				newLeafNode->length++;
+				
+				//fill missing space with remaining keys
+				targetNode->keyArray[i] = targetNode->keyArray[(INTARRAYLEAFSIZE / 2) + i];
+				targetNode->ridArray[i] = targetNode->ridArray[(INTARRAYLEAFSIZE / 2) + i];
+				targetNode->length--;
+			}
+
+			goto postsplit;
+		}
+
+		//key falls in the center, choosing to split newLeaf to the left 
+		if (keyVal >= midLeftIndex && keyVal <= midRightIndex) {
+
+			//readjust pointers
+			//TODO need to set left page rightNo to newLeaf
+			newLeafNode->rightSibPageNo = curPageNo;
+
+			//TODO push up key
+			int midKey = keyVal;
+
+			//split keys between two nodes
+			for (int i = 0; i < INTARRAYLEAFSIZE / 2; i++) {
+				
+				//move keys to new node
+				newLeafNode->keyArray[i] = targetNode->keyArray[i];
+				newLeafNode->ridArray[i] = targetNode->ridArray[i];
+				newLeafNode->length++;
+				
+				//fill missing space with remaining keys
+				targetNode->keyArray[i] = targetNode->keyArray[(INTARRAYLEAFSIZE / 2) + i];
+				targetNode->ridArray[i] = targetNode->ridArray[(INTARRAYLEAFSIZE / 2) + i];
+				targetNode->length--;
+			}
+
+			goto postsplit;
+		}
+
+		postsplit:
+
+		//TODO handle recursive non-leaf rebalancing
 
 	}
 	

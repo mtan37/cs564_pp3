@@ -326,6 +326,8 @@ class BTreeIndex {
    */
   int belongsInRange(int key, int sortedKeyList[], int keyListLength);
 
+  void insertInNode(LeafNodeInt* nodeRef, int key, RecordId rid);
+
 
  public:
 
