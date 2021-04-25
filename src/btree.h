@@ -303,7 +303,30 @@ class BTreeIndex {
    */
 	Operator	highOp;
 
-	
+  /**
+   * @param key               int key value.
+   * @param sortedKeyList     int[] of ascending key values.
+   * @return true             When key belongs before all elements in sortedKeyList.
+   */
+  bool belongsBefore(int key, int sortedKeyList[]);
+
+  /**
+   * @param key               int key value.
+   * @param sortedKeyList     int[] of ascending key values.
+   * @param keyListLength     Length property of node associated with sortedKeyList.
+   * @return true             When key belongs after all elements in sortedKeyList.
+   */
+  bool belongsAfter(int key, int sortedKeyList[], int keyListLength);
+
+  /**
+   * @param key               int key value.
+   * @param sortedKeyList     int[] of ascending key values.
+   * @param keyListLength     Length property of node associated with sortedKeyList.
+   * @return int              The index at which key belongs.
+   */
+  int belongsInRange(int key, int sortedKeyList[], int keyListLength);
+
+
  public:
 
   /**

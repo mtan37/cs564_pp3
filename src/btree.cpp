@@ -46,6 +46,32 @@ BTreeIndex::~BTreeIndex()
 }
 
 // -----------------------------------------------------------------------------
+// helper methods for insert
+// -----------------------------------------------------------------------------
+bool BTreeIndex::belongsBefore(int key, int sortedKeyList[]) {
+	return sortedKeyList[0] >= key;
+}
+
+bool BTreeIndex::belongsAfter(int key, int sortedKeyList[], int keyListLength) {
+	return sortedKeyList[keyListLength - 1] <= key;
+}
+
+int BTreeIndex::belongsInRange(int key, int sortedKeyList[], int keyListLength) {
+	
+	if (belongsBefore(key, sortedKeyList) || belongsAfter(key, sortedKeyList, keyListLength)) {
+		return -1;
+	}
+
+	for (int i = 0; i < keyListLength; i++) {
+		if (sortedKeyList[i] <= key && sortedKeyList[i + 1] >= key) {
+			return i;
+		}
+	}
+
+	return -1;
+}
+
+// -----------------------------------------------------------------------------
 // BTreeIndex::insertEntry
 // -----------------------------------------------------------------------------
 
@@ -62,21 +88,71 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	NonLeafNodeInt* rootNode = (NonLeafNodeInt*)rootPage;
 
 	//
-	// find appropriate leafnode
+	// traverse to appropriate leafnode to insert into from root
 	//
 
-	//iterate children to find appropriate leafnode (needs to be written recursive to handle multiple layers)
-	// something like while(level != 1) 
-	LeafNodeInt* targetNode;
-	for (int i = 0; i < sizeof(rootNode->pageNoArray); i++) {
-		NonLeafNodeInt* childNode = (NonLeafNodeInt*)(&(file->readPage(rootNode->pageNoArray[i])));
-		for (int j = 0; j < sizeof(childNode->keyArray); j++) {
-			if (childNode->keyArray[j] == keyVal) {
-				targetNode = (LeafNodeInt*)(&(file->readPage(childNode->keyArray[j])));
-				goto foundleafnode;
+	NonLeafNodeInt* nextNode = rootNode;
+
+	//go until reaching a level 1 node (the NonLeafNode above a LeafNode)
+	continuewhile:
+	while (nextNode->level != 1) {
+
+		//iterate children of current node
+		for (int i = 0; i < sizeof(nextNode->pageNoArray); i++) {
+			NonLeafNodeInt* childNode = (NonLeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[i])));
+
+			//see if children of current node have appropriate place to insert key
+			for (int j = 0; j < childNode->length; j++) {
+
+				//perfect match for key
+				if (childNode->keyArray[j] == keyVal) {
+					nextNode = (NonLeafNodeInt*)(&(file->readPage(childNode->pageNoArray[j])));
+					goto continuewhile;
+				}
+
+				//key does not appear directly but falls in range
+				if (j > 0 && j < childNode->length - 1) { //bounds check
+					if (childNode->keyArray[j - 1] <= keyVal && childNode->keyArray[j + 1] >= keyVal) {
+						nextNode = (NonLeafNodeInt*)(&(file->readPage(childNode->pageNoArray[j])));
+						goto continuewhile; 
+					}
+				}
 			}
 		}
 	}
+
+	foundlevel1node:
+
+	//get LeafNode from level 1 NonLeafNode
+
+	LeafNodeInt* targetNode;
+
+	//key belongs at the start of targetNode's children
+	LeafNodeInt* firstNode = (LeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[0])));
+	if (belongsBefore(keyVal, firstNode->keyArray)) {
+		targetNode = firstNode;
+		goto foundleafnode;
+	}
+
+	//key belongs at the end of targetNode's children
+	LeafNodeInt* lastNode = (LeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[nextNode->length - 1])));
+	if (belongsAfter(keyVal, lastNode->keyArray, lastNode->length)) {
+		targetNode = lastNode;
+		goto foundleafnode;
+	}
+
+	//key belongs in the midst of targetNode's children (may not catch edge cases)
+	for (int i = 0; i < nextNode->length; i++) {
+		int index = belongsInRange(keyVal, nextNode->keyArray, nextNode->length);
+		if (index != -1) {
+			targetNode = (LeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[index])));
+			goto foundleafnode;
+		}
+	}
+
+	//did not find a leaf node
+	std::cout << "[ERROR] Did not find a leaf node";
+
 	foundleafnode:
 
 	//
@@ -98,10 +174,10 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 		goto finishedinsert;
 	}
 
-	//check if key belongs between existing key
+	//check if key belongs between existing keys
 	for (int i = 0; i < targetNode->length - 1; i++) {
 
-		//perform the insert if the values align
+		//perform the insert if the key value is between adjacent keys
 		if (targetNode->keyArray[i] <= keyVal && targetNode->keyArray[i + 1] >= keyVal) {
 			
 			//shift existing keys upwards
@@ -123,13 +199,16 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	targetNode->ridArray[targetNode->length] = rid;
 	targetNode->length++;
 
-	//all three cases will end up concluding here
+	//all three cases for insertion will end up concluding here
 	finishedinsert:
 
 	//check if node has been filled up after insert
 	if (targetNode->length == INTARRAYLEAFSIZE) {
 
-		//split + rebalance
+		//TODO split + rebalance
+		//write new page for newSplitNode
+		//shift half of existing targetNode keys into newSplitNode
+		//update page pointers
 
 	}
 	
