@@ -322,7 +322,7 @@ class BTreeIndex {
    * @param key               int key value.
    * @param sortedKeyList     int[] of ascending key values.
    * @param keyListLength     Length property of node associated with sortedKeyList.
-   * @return int              The index at which key belongs.
+   * @return int              The index at which key belongs, or -1 if it falls outside the range.
    */
   int belongsInRange(int key, int sortedKeyList[], int keyListLength);
 
