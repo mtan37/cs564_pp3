@@ -308,7 +308,7 @@ void createRelationRandom()
 	int i = 0;
   while( i < relationSize )
   {
-    pos = random() % (relationSize-i);
+    pos = rand() % (relationSize-i);
     val = intvec[pos];
     sprintf(record1.s, "%05d string record", val);
     record1.i = val;

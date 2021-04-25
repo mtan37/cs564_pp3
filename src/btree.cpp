@@ -99,7 +99,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	continuewhile:
 	while (nextNode->level != 1) {
 
-		//leftmost case (key falls before beginning of node list)
+		//leftmost case (key falls before beginning of key list)
 		if (belongsBefore(keyVal, nextNode->keyArray)) {
 			nextNode = (NonLeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[0])));
 			goto continuewhile;
@@ -112,7 +112,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 			goto continuewhile;
 		}
 
-		//rightmost case (key falls at the end of the node list)
+		//rightmost case (key falls at the end of the key list)
 		nextNode = (NonLeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[nextNode->length - 1])));
 		goto continuewhile;
 	}
@@ -121,7 +121,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 
 	LeafNodeInt* targetNode;
 
-	//leftmost case (key falls before beginning of leaf node list)
+	//leftmost case (key falls before beginning of key list)
 	if (belongsBefore(keyVal, nextNode->keyArray)) {
 		targetNode = (LeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[0])));
 		goto foundleafnode;
@@ -134,7 +134,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 		goto foundleafnode;
 	}
 
-	//rightmost case (key falls at the end of the leaf node list)
+	//rightmost case (key falls at the end of the key list)
 	targetNode = (LeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[nextNode->length - 1])));
 
 	foundleafnode:
@@ -185,6 +185,8 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 		targetNode->length++;
 
 		finishedinsert:
+
+		return; //all done
 
 	} else if (targetNode->length == INTARRAYLEAFSIZE) {
 		//
