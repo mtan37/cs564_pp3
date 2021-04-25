@@ -79,6 +79,8 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 {
     // Add your code below. Please do not remove this line.
 
+	//TODO handle edge cases where the tree hasn't yet been filled up (need to check instructions to see expectations)
+
 	//
 	// setup for insertion
 	//
@@ -98,7 +100,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	while (nextNode->level != 1) {
 
 		//iterate children of current node
-		for (int i = 0; i < sizeof(nextNode->pageNoArray); i++) {
+		for (int i = 0; i < nextNode->length; i++) {
 			NonLeafNodeInt* childNode = (NonLeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[i])));
 
 			//see if children of current node have appropriate place to insert key
@@ -123,35 +125,43 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 
 	foundlevel1node:
 
-	//get LeafNode from level 1 NonLeafNode
+	//get LeafNode (targetNode) from level 1 NonLeafNode (nextNode)
 
 	LeafNodeInt* targetNode;
 
-	//key belongs at the start of targetNode's children
+	//key belongs at the start of targetNode's leaf nodes
 	LeafNodeInt* firstNode = (LeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[0])));
 	if (belongsBefore(keyVal, firstNode->keyArray)) {
 		targetNode = firstNode;
 		goto foundleafnode;
 	}
 
-	//key belongs at the end of targetNode's children
+	//key belongs at the end of targetNode's leaf nodes
 	LeafNodeInt* lastNode = (LeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[nextNode->length - 1])));
 	if (belongsAfter(keyVal, lastNode->keyArray, lastNode->length)) {
 		targetNode = lastNode;
 		goto foundleafnode;
 	}
 
-	//key belongs in the midst of targetNode's children (may not catch edge cases)
+	//key belongs in the midst of targetNode's leaf nodes
 	for (int i = 0; i < nextNode->length; i++) {
-		int index = belongsInRange(keyVal, nextNode->keyArray, nextNode->length);
+		LeafNodeInt* childNode = (LeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[i])));
+		int index = belongsInRange(keyVal, childNode->keyArray, childNode->length);
 		if (index != -1) {
-			targetNode = (LeafNodeInt*)(&(file->readPage(nextNode->pageNoArray[index])));
+			targetNode = childNode;
 			goto foundleafnode;
+		} else {
+			//handle edge case where key falls between two nodes
+			LeafNodeInt* adjacentNode = (LeafNodeInt*)(&(file->readPage(childNode->rightSibPageNo)));
+			if (belongsAfter(keyVal, childNode->keyArray, childNode->length) && belongsBefore(keyVal, adjacentNode->keyArray)) {
+				targetNode = childNode;
+				goto foundleafnode;
+			}
 		}
 	}
 
 	//did not find a leaf node
-	std::cout << "[ERROR] Did not find a leaf node";
+	std::cout << "[ERROR] Did not find a leaf node, something went wrong above";
 
 	foundleafnode:
 
@@ -160,7 +170,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	//
 
 	//check if key belongs in the beginning
-	if (targetNode->keyArray[0] >= keyVal) {
+	if (belongsBefore(keyVal, targetNode->keyArray)) {
 
 		//shift existing keys upwards
 		for (int i = 0; i < targetNode->length - 1; i++) {
