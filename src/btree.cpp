@@ -219,7 +219,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	//
 
 	//case where no need to rebalance
-	if (targetNode->length < INTARRAYLEAFSIZE) {
+	if (targetNode->length < LEAF_SIZE_EVEN) {
 
 		insertInNode(targetNode, keyVal, rid);
 
@@ -234,11 +234,11 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 		Page* newLeaf = &(file->allocatePage(newLeafId));
 		LeafNodeInt* newLeafNode = (LeafNodeInt*)newLeaf;
 
-		Page* curLeafPage = (Page*)targetNode;
+		Page* curLeafPage = (Page*)targetNode; //TODO we shouldn't be casting nodes back
 		int curPageNo = curLeafPage->page_number();
 
-		int midLeftIndex = (INTARRAYLEAFSIZE / 2) - 1;
-		int midRightIndex = (INTARRAYLEAFSIZE) / 2;
+		int midLeftIndex = (LEAF_SIZE_EVEN / 2) - 1;
+		int midRightIndex = (LEAF_SIZE_EVEN) / 2;
 
 		int midKey;
 
