@@ -15,7 +15,7 @@
 #include "exceptions/index_scan_completed_exception.h"
 #include "exceptions/file_not_found_exception.h"
 #include "exceptions/end_of_file_exception.h"
-
+#include "exceptions/bad_scan_param_exception.h"
 
 //#define DEBUG
 
@@ -152,7 +152,7 @@ void BTreeIndex::startScanInt(const int lowVal, const Operator lowOp, const int 
     }
  
     if (leafNode == NULL){
-        //TODO throw exeception, something wrong happened
+        throw BadScanParamException();
     }
 
     //find the first record that is equal or greater than the low val
@@ -170,7 +170,7 @@ void BTreeIndex::startScanInt(const int lowVal, const Operator lowOp, const int 
     }
     
     //no matching entry in the range found, end the scan
-    //TODO
+    throw BadScanParamException();
 }
 
 // -----------------------------------------------------------------------------
@@ -224,7 +224,7 @@ void BTreeIndex::scanNext(RecordId& outRid)
     }   
  
     //move the cursor forward
-    if (nextEntry + 1 >= INTARRAYLEAFSIZE){
+    if (nextEntry + 1 >= currNode->length){
         currentPageNum = currNode->rightSibPageNo;
         nextEntry = 0;
     } else {
