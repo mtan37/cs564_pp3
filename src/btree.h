@@ -48,11 +48,15 @@ enum Operator
 //                                                  sibling ptr             key               rid
 const  int INTARRAYLEAFSIZE = ( Page::SIZE - sizeof( PageId ) - sizeof(int) ) / ( sizeof( int ) + sizeof( RecordId ) );
 
+const int LEAF_SIZE_EVEN = ((INTARRAYLEAFSIZE % 2 == 0) ? INTARRAYLEAFSIZE : INTARRAYLEAFSIZE - 1);  
+
 /**
  * @brief Number of key slots in B+Tree non-leaf for INTEGER key.
  */
 //                                                     level     extra pageNo                  key       pageNo
 const  int INTARRAYNONLEAFSIZE = ( Page::SIZE - sizeof( int ) * 2 - sizeof( PageId ) ) / ( sizeof( int ) + sizeof( PageId ) );
+
+const int NONLEAF_SIZE_EVEN = ((INTARRAYNONLEAFSIZE % 2 == 0) ? INTARRAYNONLEAFSIZE : INTARRAYNONLEAFSIZE - 1);
 
 /**
  * @brief Structure to store a key-rid pair. It is used to pass the pair to functions that 

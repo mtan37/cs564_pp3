@@ -35,7 +35,6 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
     // Add your code below. Please do not remove this line.
 }
 
-
 // -----------------------------------------------------------------------------
 // BTreeIndex::~BTreeIndex -- destructor
 // -----------------------------------------------------------------------------
@@ -261,7 +260,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 		insertInNode(newLeafNode, keyVal, rid);
 
 		//TODO push up key, handle recursive non-leaf rebalancing
-		
+
 		return;
 
 	}
