@@ -92,7 +92,8 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 		// erase the fscan object
 		delete fscan;
 	} catch (FileExistsException & e) {
-		// open the index file - TODO
+		// open the index file
+		file = new BlobFile(outIndexName, false);
 	}	
 
 }
