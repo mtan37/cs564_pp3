@@ -16,7 +16,7 @@
 #include "exceptions/file_not_found_exception.h"
 #include "exceptions/end_of_file_exception.h"
 #include "exceptions/file_exists_exception.h"
-
+#include "exceptions/bad_scan_param_exception.h"
 
 //#define DEBUG
 
@@ -130,6 +130,113 @@ void BTreeIndex::startScan(const void* lowValParm,
 				   const Operator highOpParm)
 {
     // Add your code below. Please do not remove this line.
+    scanExecuting = true;
+    
+    if (lowOpParm != GT && lowOpParm !=GTE){
+        throw BadOpcodesException();
+    } else if(highOpParm != LT && highOpParm != LTE){
+        throw BadOpcodesException();
+    }
+    
+    lowOp = lowOpParm;
+    highOp = highOpParm;
+    
+    switch (attributeType){
+    
+        case INTEGER: {
+            int lowVal = *(int *)lowValParm;
+            int highVal = *(int *)highValParm;
+            startScanInt(lowVal, lowOpParm, highVal, highOpParm);            
+        break; }
+    
+        case DOUBLE:{
+        std::cout << "Scan is not started: "
+            << "Index data type DOUBLE is not implemented" << std::endl;
+        scanExecuting = false;
+        return; }
+    
+        case STRING:{
+        std::cout << "Scan is not started: "
+            << "Index data type STRING is not implemented" << std::endl;
+        scanExecuting = false;
+        return; }
+    
+        default:{
+        std::cout << "Scan is not started: "
+            << "Unkonwn index data type." << std::endl;
+        scanExecuting = false;
+        return; }
+    
+    }    
+
+}
+
+// -----------------------------------------------------------------------------
+// BTreeIndex::startScanInt
+// -----------------------------------------------------------------------------
+
+void BTreeIndex::startScanInt(const int lowVal, const Operator lowOp, const int highVal, const Operator highOp){
+    
+    if (lowVal > highVal)
+        throw BadScanrangeException();
+    else if (lowVal == highVal && (lowOp != GTE || highOp != LTE))
+        throw BadScanrangeException();
+    
+    Page rootPage = file->readPage(rootPageNum);
+    NonLeafNodeInt* currNode = (NonLeafNodeInt *)&rootPage;
+    //traverse to the non-leaf a level above leaf node
+    PageId nextPageId = 0;
+    LeafNodeInt * leafNode = NULL;
+
+    while (true){
+        for (int i = 0; i < currNode->length; i++){
+           
+            if ((currNode->keyArray)[i] >= lowVal){
+                nextPageId = (currNode->pageNoArray)[i];
+                break;
+            }
+        
+        }    
+        
+        if ((currNode->keyArray)[currNode->length - 1] < lowVal){
+            nextPageId = (currNode->pageNoArray)[currNode->length];
+        }
+
+        if (currNode->level != 1){
+            Page pageNode = file->readPage(nextPageId);
+            currNode = (NonLeafNodeInt *)&pageNode;
+            continue;
+        } else {
+            //leaf node located
+            Page pageNode = file->readPage(nextPageId);
+            currentPageData = &pageNode; 
+            currentPageNum = nextPageId; 
+            leafNode = (LeafNodeInt *)currentPageData;    
+            break;
+        }
+
+    }
+ 
+    if (leafNode == NULL){
+        throw BadScanParamException();
+    }
+
+    //find the first record that is equal or greater than the low val
+    for (int i = 0; i < leafNode->length; i++){
+
+        if (lowOp == GTE && (leafNode->keyArray)[i] >= lowVal){
+            nextEntry = i;
+            return;
+        }
+        else if (lowOp == GT && (leafNode->keyArray)[i] > lowVal){
+            nextEntry = i;
+            return;
+        }
+
+    }
+    
+    //no matching entry in the range found, end the scan
+    throw BadScanParamException();
 }
 
 // -----------------------------------------------------------------------------
@@ -139,6 +246,56 @@ void BTreeIndex::startScan(const void* lowValParm,
 void BTreeIndex::scanNext(RecordId& outRid) 
 {
     // Add your code below. Please do not remove this line.
+    //load the next record entry
+    Page currPage = file->readPage(currentPageNum);
+    LeafNodeInt *currNode = (LeafNodeInt *)&currPage;
+    RecordId currRid = (currNode->ridArray)[nextEntry];
+    
+    Page metaPage = file->readPage(headerPageNum);
+    IndexMetaInfo *metaData = (IndexMetaInfo *)&metaPage;
+    FileScan *scanner = new FileScan(metaData->relationName, bufMgr);
+    
+    //check if the loaded record satisfy the range condition 
+    scanner->scanNext(currRid);
+    std::string currRecord = scanner->getRecord();
+    int keyVal = *(int *) currRecord.c_str() + attrByteOffset;
+    
+    //key value validation
+    switch (lowOp){
+        case GT:{
+            if (keyVal <= lowValInt)
+                throw IndexScanCompletedException();
+        }
+        case GTE: {
+            if (keyVal < lowValInt)
+                throw IndexScanCompletedException();
+        }
+        default:{
+            throw BadScanrangeException();
+        }
+    }
+
+    switch (highOp){
+        case LT:{
+            if (keyVal >= highValInt)
+                throw IndexScanCompletedException();
+        }
+        case LTE:{
+            if (keyVal > highValInt)
+                throw IndexScanCompletedException();
+        }
+        default:{
+            throw BadScanrangeException();
+        }
+    }   
+ 
+    //move the cursor forward
+    if (nextEntry + 1 >= currNode->length){
+        currentPageNum = currNode->rightSibPageNo;
+        nextEntry = 0;
+    } else {
+        nextEntry++;
+    }
 }
 
 // -----------------------------------------------------------------------------
