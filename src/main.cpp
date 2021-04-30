@@ -5,6 +5,12 @@
  * Copyright (c) 2012 Database Group, Computer Sciences Department, University of Wisconsin-Madison.
  */
 
+#include <stdio.h>
+#include <execinfo.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <unistd.h>
+
 #include <vector>
 #include "btree.h"
 #include "page.h"
@@ -75,8 +81,23 @@ void test3();
 void errorTests();
 void deleteRelation();
 
+void handler(int sig) {
+  void *array[10];
+  size_t size;
+
+  // get void*'s for all entries on the stack
+  size = backtrace(array, 10);
+
+  // print out all the frames to stderr
+  fprintf(stderr, "Error: signal %d:\n", sig);
+  backtrace_symbols_fd(array, size, STDERR_FILENO);
+  exit(1);
+}
+
 int main(int argc, char **argv)
 {
+
+    signal(SIGSEGV, handler);
 
   // Clean up from any previous runs that crashed.
   try
@@ -372,6 +393,15 @@ void intTests()
 	checkPassFail(intScan(&index,0,GT,1,LT), 0)
 	checkPassFail(intScan(&index,300,GT,400,LT), 99)
 	checkPassFail(intScan(&index,3000,GTE,4000,LT), 1000)
+  BTreeIndex index2(relationName, intIndexName, bufMgr, offsetof(tuple,i), INTEGER);
+	// run some tests
+	checkPassFail(intScan(&index2,25,GT,40,LT), 14)
+	checkPassFail(intScan(&index2,20,GTE,35,LTE), 16)
+	checkPassFail(intScan(&index2,-3,GT,3,LT), 3)
+	checkPassFail(intScan(&index2,996,GT,1001,LT), 4)
+	checkPassFail(intScan(&index2,0,GT,1,LT), 0)
+	checkPassFail(intScan(&index2,300,GT,400,LT), 99)
+	checkPassFail(intScan(&index2,3000,GTE,4000,LT), 1000)
 }
 
 int intScan(BTreeIndex * index, int lowVal, Operator lowOp, int highVal, Operator highOp)
@@ -422,6 +452,7 @@ int intScan(BTreeIndex * index, int lowVal, Operator lowOp, int highVal, Operato
 		}
 
 		numResults++;
+        std::cout <<"numresults" << numResults<<std::endl;
 	}
 
   if( numResults >= 5 )
