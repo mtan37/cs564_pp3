@@ -240,6 +240,10 @@ class BTreeIndex {
    */
 	int			nodeOccupancy;
 
+    /**
+     * Indicate whether the root node is a leaf
+     */
+    bool isRootLeaf;
 
 	// MEMBERS SPECIFIC TO SCANNING
 
@@ -309,10 +313,54 @@ class BTreeIndex {
     * This function assumes that all pass in value are not null, 
     * and the operator values are valid
     */
-    void startScanInt(const int lowVal, const Operator lowOp, const int highVal, const Operator highOp);
+    void startScanInt();
 
-	
- public:
+    /**
+     * Split a full non-leaf node in to two new pages
+     * The content of the original page node is left intact 
+     */
+    void splitNonLeafNodeWithNewKey(Page* node, PageId &newNodeNumL, PageId &newNodeNumR, int &newKey);
+    
+    /**
+     * Split a full leaf node in to two new pages
+     * The content of the original page node is left intact 
+     */
+    void splitLeafNodeWithNewKey(Page* node, PageId &newNodeNumL, PageId &newNodeNumR, int &newKey);
+
+    /**
+     * Insert a new key in non-full non leaf node
+     */	
+    void insertNewKeyInNonLeaf(NonLeafNodeInt* node, const int key, const PageId pageNumL, const PageId pageNumR);
+
+    /**
+     * Insert a new rid into a not full leaf
+     */
+    void insertNewRInLeaf(LeafNodeInt* leaf, const int key, const RecordId rid);
+
+    /**
+     * Recursive helper to insert value to non leaf node
+     */
+    void insertToNonLeaf(PageId pageId, int keyVal, const RecordId rid, bool &hasNextKey, PageId &newPageNumL, PageId &newPageNumR, int &newKey);
+
+    /**
+     * Recursive helper to insert value to leaf node
+     */
+    void insertToLeaf(PageId pageId, int keyVal, const RecordId rid, bool &hasNewKey, PageId &newPageNumL, PageId &newPageNumR, int &newKey);
+
+    /**
+     * Scan leaf node to find an index for the scan
+     * @param leafId - pageId of the leaf node
+     * @param found - reference indicate whether a value is found for the search range in the leaf
+     * @param keyIndex - reference to the index value of the key found  
+     */
+    void scanLeaf(PageId leafId, int &keyIndex, bool &found);
+ 
+    /**
+     * Recursive scan helper for the range scan
+     */
+    void scanRecursiveHelper(badgerdb::PageId, badgerdb::PageId&);
+   
+public:
 
   /**
    * BTreeIndex Constructor. 
