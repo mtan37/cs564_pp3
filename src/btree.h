@@ -325,7 +325,7 @@ class BTreeIndex {
      * Split a full leaf node in to two new pages
      * The content of the original page node is left intact 
      */
-    void splitLeafNodeWithNewKey(Page* node, PageId &newNodeNumL, PageId &newNodeNumR, int &newKey);
+    void splitLeafNodeWithNewKey(PageId pageId, PageId &newNodeNumL, PageId &newNodeNumR, int &newKey);
 
     /**
      * Insert a new key in non-full non leaf node

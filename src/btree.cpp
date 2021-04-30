@@ -62,7 +62,7 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 
 		// set index file root page number
 		this->rootPageNum = metaInfo->rootPageNo;
-		bufMgr->unPinPage(file, headerPageNum, false);
+		bufMgr->unPinPage(file, headerPageNum, true);
 
 		// create a root page
 		Page *rootPage;
@@ -73,6 +73,8 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
         isRootLeaf = true;
 
         bufMgr->unPinPage(file, rootPageNum, true);
+        rootPage = NULL;
+        rootNode = NULL;
 
 		// scan the relation
 		FileScan * fscan = new FileScan(relationName, bufMgr);
@@ -159,19 +161,31 @@ void BTreeIndex::splitNonLeafNodeWithNewKey(Page* node, PageId &newNodeNumL, Pag
     newNodeR->pageNoArray[newNodeLength] = nf->pageNoArray[INTARRAYNONLEAFSIZE];
     newNodeR->length = newNodeLength;   
     newNodeR->level = nf->level;
+    
+    bufMgr->unPinPage(file, newNodeNumL, true); 
+    bufMgr->unPinPage(file, newNodeNumR, true);
+    newPageL = NULL;
+    newPageR = NULL;
+    newNodeL = NULL;
+    newNodeR = NULL; 
 }
 
 // -----------------------------------------------------------------------------
 // BTreeIndex::splitLeafNodeWithNewKey
 // -----------------------------------------------------------------------------
-void BTreeIndex::splitLeafNodeWithNewKey(Page* node, PageId &newNodeNumL, PageId &newNodeNumR, int &newKey){
-    LeafNodeInt *leaf = (LeafNodeInt*) node;
+void BTreeIndex::splitLeafNodeWithNewKey(const PageId pageId, PageId &newNodeNumL, PageId &newNodeNumR, int &newKey){
+    
+    Page *page;
+    bufMgr->readPage(file, pageId, page);
+    LeafNodeInt *leaf = (LeafNodeInt*) page;
     
     if (leaf->length < INTARRAYLEAFSIZE){
         // do nothing, the node is not full yet
         std::cout << "split function called but nothing was done: The node is not full" << std::endl;
         return;
     }
+        std::cout << "Split leaf node with new key Start: " << leaf->length<<std::endl;
+        std::cout << "Split leaf node with new key Start: " << INTARRAYLEAFSIZE<<std::endl;
 
     Page *newPageL;
     Page *newPageR;
@@ -191,6 +205,7 @@ void BTreeIndex::splitLeafNodeWithNewKey(Page* node, PageId &newNodeNumL, PageId
     }
     newNodeL->rightSibPageNo = newNodeNumR;
     newNodeL->length = newNodeLength;   
+        std::cout << "Split leaf node with new key Start: " << leaf->length<<std::endl;
  
     // copy into right node
     newNodeLength = 0;
@@ -205,6 +220,14 @@ void BTreeIndex::splitLeafNodeWithNewKey(Page* node, PageId &newNodeNumL, PageId
     // unpin the new pages
     bufMgr->unPinPage(file, newNodeNumL, true);
     bufMgr->unPinPage(file, newNodeNumR, true);
+    newPageL = NULL;
+    newPageR = NULL;
+    newNodeL = NULL;
+    newNodeR = NULL; 
+    
+
+    std::cout << "Split leaf node with new key finish: "  << std::endl;
+    bufMgr->unPinPage(file, pageId, true);
 }   
 
 // -----------------------------------------------------------------------------
@@ -273,6 +296,7 @@ void BTreeIndex::insertNewRInLeaf(LeafNodeInt* leaf, const int key, const Record
 // -----------------------------------------------------------------------------
 void BTreeIndex::insertToNonLeaf(PageId pageId, int keyVal, const RecordId rid,bool &hasNewKey, PageId &newPageNumL, PageId &newPageNumR, int &newKey)
 {
+        std::cout << "Insert To Non Leaf Start: " << keyVal << std::endl;
         Page* page;
         PageId insertPageId = Page::INVALID_NUMBER;
         bufMgr->readPage(file, pageId, page);
@@ -284,15 +308,17 @@ void BTreeIndex::insertToNonLeaf(PageId pageId, int keyVal, const RecordId rid,b
             splitNonLeafNodeWithNewKey(page, newPageNumL, newPageNumR, newKey);             
             hasNewKey = true;
             bufMgr->unPinPage(file, pageId, true);
+            node = NULL;
+            page = NULL;       
             //bufMgr->disposePage(file, pageId);
             
             if (newKey < keyVal){
                 bufMgr->readPage(file, newPageNumR, page);
-                insertPageId = newPageNumR;
+                pageId = newPageNumR;
                 node = (NonLeafNodeInt*)page;
             } else {
                 bufMgr->readPage(file, newPageNumL, page);
-                insertPageId = newPageNumL;
+                pageId = newPageNumL;
                 node = (NonLeafNodeInt*)page;
             }
         
@@ -324,6 +350,12 @@ void BTreeIndex::insertToNonLeaf(PageId pageId, int keyVal, const RecordId rid,b
         if (hasPropagatedKey) {
             insertNewKeyInNonLeaf(node, propagatedKey, propagatedPageL, propagatedPageR);
         }
+        
+        bufMgr->unPinPage(file, pageId, true);
+        node = NULL;
+        page = NULL;       
+ 
+        std::cout << "Insert To Non Leaf Finish: " << keyVal << std::endl;
 }
 
 // -----------------------------------------------------------------------------
@@ -340,19 +372,21 @@ void BTreeIndex::insertToLeaf(PageId pageId, int keyVal, const RecordId rid, boo
         // if this is a full leaf, split
         if (leaf->length >= INTARRAYLEAFSIZE){
             
-            splitLeafNodeWithNewKey(page, newPageNumL, newPageNumR, newKey);
-            
-            hasNewKey = true; 
             bufMgr->unPinPage(file, pageId, true);
+            page = NULL;
+            leaf = NULL;           
+ 
+            splitLeafNodeWithNewKey(pageId, newPageNumL, newPageNumR, newKey);
+            hasNewKey = true; 
             //bufMgr->disposePage(file, pageId);// delete the old page
 
-            if (newKey < keyVal){
-                bufMgr->readPage(file, newPageNumR, page);
-                insertPageId = newPageNumR;
-                leaf = (LeafNodeInt*)page;
-            } else {
+            if (keyVal < newKey){
                 bufMgr->readPage(file, newPageNumL, page);
                 insertPageId = newPageNumL;
+                leaf = (LeafNodeInt*)page;
+            } else {
+                bufMgr->readPage(file, newPageNumR, page);
+                insertPageId = newPageNumR;
                 leaf = (LeafNodeInt*)page;
             }
 
@@ -360,6 +394,8 @@ void BTreeIndex::insertToLeaf(PageId pageId, int keyVal, const RecordId rid, boo
     
         insertNewRInLeaf(leaf, keyVal, rid);
         bufMgr->unPinPage(file, insertPageId, true);
+        page = NULL;
+        leaf = NULL;           
 }
 
 // -----------------------------------------------------------------------------
@@ -370,7 +406,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 {
     int keyVal = *(int*)key;	
  
-    std::cout << "Scan started for key" << keyVal << std::endl;
+    std::cout << "Insert started for key" << keyVal << std::endl;
     // root node is a leaf node
     if (isRootLeaf){
         Page* rootPage;
@@ -383,9 +419,13 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
             rootNode->length = 1;
             // done
             bufMgr->unPinPage(file, rootPageNum, true);
+            rootPage = NULL;
+            rootNode = NULL;
             return; 
         }
-        bufMgr->unPinPage(file, rootPageNum, false);
+        bufMgr->unPinPage(file, rootPageNum, true);
+        rootPage = NULL;
+        rootNode = NULL;
     }    
   
     PageId newPageNumL = Page::INVALID_NUMBER;
@@ -395,6 +435,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
     if (isRootLeaf){
         insertToLeaf(rootPageNum, keyVal, rid, hasNewKey, newPageNumL, newPageNumR, newKey); 
         if (hasNewKey){
+                std::cout << "Has new key(1)" << newKey << std::endl;
                 isRootLeaf = false;
                 Page* page;
                 bufMgr->allocPage(file, rootPageNum, page);
@@ -406,19 +447,25 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
                 newNode->pageNoArray[0] = newPageNumL;
                 newNode->pageNoArray[1] = newPageNumR;
                 bufMgr->unPinPage(file, rootPageNum, true);
+                page = NULL;
+                newNode = NULL;
         }
 
     } else {
         insertToNonLeaf(rootPageNum, keyVal, rid, hasNewKey, newPageNumL, newPageNumR, newKey);  
         if (hasNewKey){
+            std::cout << "Has new key(2)" << newKey << std::endl;
             Page* page;
             bufMgr->allocPage(file, rootPageNum, page);
             NonLeafNodeInt *rootNode = (NonLeafNodeInt *)page;   
             insertNewKeyInNonLeaf(rootNode, newKey, newPageNumL, newPageNumR); 
             bufMgr->unPinPage(file, rootPageNum, true);
+            page = NULL;
+            rootNode = NULL;
         }
     }
-
+    std::cout << "Insert finished for key" << keyVal << std::endl;
+    bufMgr->printSelf();
 }
 
 // -----------------------------------------------------------------------------
@@ -500,6 +547,8 @@ void BTreeIndex::scanLeaf(PageId leafId, int &keyIndex, bool &found){
     }
      
     bufMgr->unPinPage(file, leafId, false);
+    page = NULL;
+    leaf = NULL;
 }
 // -----------------------------------------------------------------------------
 // BTreeIndex::scanRecursiveHelper
@@ -526,14 +575,16 @@ void BTreeIndex::scanRecursiveHelper(PageId pageId, PageId &leaf){
     if (nextLevel == Page::INVALID_NUMBER){
         nextLevel = node->pageNoArray[node->length - 1];
     }
-    
-    bufMgr->unPinPage(file, pageId, false);
 
     if (node->level == 1){ //next level is a leaf
         leaf = nextLevel;
     } else { //recursive case
         scanRecursiveHelper(nextLevel, leaf);
     }
+    
+    bufMgr->unPinPage(file, pageId, false);
+    node = NULL;
+    page = NULL;
     
 }
 
@@ -592,6 +643,8 @@ void BTreeIndex::scanNext(RecordId& outRid)
     IndexMetaInfo *metaData = (IndexMetaInfo *)metaPage;
     FileScan *scanner = new FileScan(metaData->relationName, bufMgr);
     bufMgr->unPinPage(file, headerPageNum, false);   
+    metaPage = NULL;
+    metaData = NULL;
  
     //check if the loaded record satisfy the range condition 
     scanner->scanNext(currRid);
@@ -632,6 +685,9 @@ void BTreeIndex::scanNext(RecordId& outRid)
         PageId tmp = currentPageNum;
         currentPageNum = currNode->rightSibPageNo;
         bufMgr->unPinPage(file, tmp, false);   
+        currPage = NULL;
+        currNode = NULL;
+
         nextEntry = 0;
     } else {
         nextEntry++;
