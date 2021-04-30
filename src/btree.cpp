@@ -182,8 +182,10 @@ void BTreeIndex::startScanInt(const int lowVal, const Operator lowOp, const int 
     else if (lowVal == highVal && (lowOp != GTE || highOp != LTE))
         throw BadScanrangeException();
     
-    Page rootPage = file->readPage(rootPageNum);
-    NonLeafNodeInt* currNode = (NonLeafNodeInt *)&rootPage;
+    Page *rootPage;
+    PageId currPageId = rootPageNum;
+    bufMgr->readPage(file, currPageId, rootPage);
+    NonLeafNodeInt* currNode = (NonLeafNodeInt *)rootPage;
     //traverse to the non-leaf a level above leaf node
     PageId nextPageId = 0;
     LeafNodeInt * leafNode = NULL;
@@ -203,13 +205,20 @@ void BTreeIndex::startScanInt(const int lowVal, const Operator lowOp, const int 
         }
 
         if (currNode->level != 1){
-            Page pageNode = file->readPage(nextPageId);
-            currNode = (NonLeafNodeInt *)&pageNode;
+            Page *pageNode;
+            bufMgr->readPage(file, nextPageId, pageNode);
+            bufMgr->unPinPage(file, currPageId, false);
+
+            currNode = (NonLeafNodeInt *)pageNode;
+            currPageId = nextPageId;
             continue;
         } else {
             //leaf node located
-            Page pageNode = file->readPage(nextPageId);
-            currentPageData = &pageNode; 
+            Page *pageNode;
+            bufMgr->readPage(file, nextPageId, pageNode);
+            bufMgr->unPinPage(file, currPageId, false);
+            
+            currentPageData = pageNode; 
             currentPageNum = nextPageId; 
             leafNode = (LeafNodeInt *)currentPageData;    
             break;
@@ -226,15 +235,18 @@ void BTreeIndex::startScanInt(const int lowVal, const Operator lowOp, const int 
 
         if (lowOp == GTE && (leafNode->keyArray)[i] >= lowVal){
             nextEntry = i;
+            bufMgr->unPinPage(file, currPageNum, false);
             return;
         }
         else if (lowOp == GT && (leafNode->keyArray)[i] > lowVal){
             nextEntry = i;
+            bufMgr->unPinPage(file, currPageNum, false);
             return;
         }
 
     }
     
+    bufMgr->unPinPage(file, currPageNum, false);
     //no matching entry in the range found, end the scan
     throw BadScanParamException();
 }
@@ -247,14 +259,17 @@ void BTreeIndex::scanNext(RecordId& outRid)
 {
     // Add your code below. Please do not remove this line.
     //load the next record entry
-    Page currPage = file->readPage(currentPageNum);
-    LeafNodeInt *currNode = (LeafNodeInt *)&currPage;
+    Page *currPage;
+    bufMgr->readPage(file, currentPageNum, currPage);
+    LeafNodeInt *currNode = (LeafNodeInt *)currPage;
     RecordId currRid = (currNode->ridArray)[nextEntry];
     
-    Page metaPage = file->readPage(headerPageNum);
-    IndexMetaInfo *metaData = (IndexMetaInfo *)&metaPage;
+    Page *metaPage;
+    bufMgr->readPage(file, headerPageNum, metaPage);
+    IndexMetaInfo *metaData = (IndexMetaInfo *)metaPage;
     FileScan *scanner = new FileScan(metaData->relationName, bufMgr);
-    
+    bufMgr->unPinPage(file, headerPageNum, false);   
+ 
     //check if the loaded record satisfy the range condition 
     scanner->scanNext(currRid);
     std::string currRecord = scanner->getRecord();
@@ -291,7 +306,9 @@ void BTreeIndex::scanNext(RecordId& outRid)
  
     //move the cursor forward
     if (nextEntry + 1 >= currNode->length){
+        PageId tmp = currentPageNum;
         currentPageNum = currNode->rightSibPageNo;
+        bufMgr->unPinPage(file, tmp, false);   
         nextEntry = 0;
     } else {
         nextEntry++;
