@@ -318,47 +318,78 @@ class BTreeIndex {
     /**
      * Split a full non-leaf node in to two new pages
      * The content of the original page node is left intact 
+     * @param pageId - the page id of the to-be-split page
+     * @param newNodeNumL - the return reference of left page id after split 
+     * @param newNodeNumR - the return reference of right page id after split
+     * @param newKey - the return reference of the new pushed up key after split 
      */
     void splitNonLeafNodeWithNewKey(PageId pageId, PageId &newNodeNumL, PageId &newNodeNumR, int &newKey);
     
     /**
      * Split a full leaf node in to two new pages
-     * The content of the original page node is left intact 
+     * The content of the original page node is left intact
+     * @param pageId - the page id of the to-be-split page
+     * @param newNodeNumL - the return reference of left page id after split 
+     * @param newNodeNumR - the return reference of right page id after split
+     * @param newKey - the return reference of the new pushed up key after split 
      */
     void splitLeafNodeWithNewKey(PageId pageId, PageId &newNodeNumL, PageId &newNodeNumR, int &newKey);
 
     /**
      * Insert a new key in non-full non leaf node
+     * @param node - pointer reference to the non-leaf struct
+     * @param key - the insert key value
+     * @param pageNumL - the page id of the left page of the key entry
+     * @param pageNumR - the page id of the right page of the key entry
      */	
     void insertNewKeyInNonLeaf(NonLeafNodeInt* node, const int key, const PageId pageNumL, const PageId pageNumR);
 
     /**
      * Insert a new rid into a not full leaf
+     * @param leaf - pointer reference to the leaf struct
+     * @param key - the insert key value
+     * @param rid - the insert rid
      */
     void insertNewRInLeaf(LeafNodeInt* leaf, const int key, const RecordId rid);
 
     /**
      * Recursive helper to insert value to non leaf node
+     * @param pageId - page id of the non-leaf node
+     * @param keyVal - the key value to be inserted
+     * @param rid - rid of the entry corresponding to the keyVal
+     * @param hasNewKey - return reference to indicate whether there is a pushed up key resulf from non-leaf splitting
+     * @param newPageNumL - return reference to the page id of the splited non-leaf on the left side
+     * @param newPageNumR - return reference to the page id of the splited non-leaf on the right side
+     * @param newKey - reference to the new pushed up key
      */
     void insertToNonLeaf(PageId pageId, int keyVal, const RecordId rid, bool &hasNextKey, PageId &newPageNumL, PageId &newPageNumR, int &newKey);
 
     /**
-     * Recursive helper to insert value to leaf node
+     * Helper to insert value to leaf node
+     * @param pageId - page id of the leaf node
+     * @param keyVal - the key value to be inserted
+     * @param rid - rid of the entry corresponding to the keyVal
+     * @param hasNewKey - return reference to indicate whether there is a pushed up key resulf from leaf splitting
+     * @param newPageNumL - return reference to the page id of the splited leaf on the left side
+     * @param newPageNumR - return reference to the page id of the splited leaf on the right side
+     * @param newKey - return reference to the new pushed up key
      */
     void insertToLeaf(PageId pageId, int keyVal, const RecordId rid, bool &hasNewKey, PageId &newPageNumL, PageId &newPageNumR, int &newKey);
 
     /**
      * Scan leaf node to find an index for the scan
      * @param leafId - pageId of the leaf node
-     * @param found - reference indicate whether a value is found for the search range in the leaf
-     * @param keyIndex - reference to the index value of the key found  
+     * @param found - return reference indicate whether a value is found for the search range in the leaf
+     * @param keyIndex - return reference to the index value of the key found  
      */
     void scanLeaf(PageId leafId, int &keyIndex, bool &found);
  
     /**
      * Recursive scan helper for the range scan
+     * @param pageId - the page id of current paging being scanned
+     * @param leaf - return reference to the leaf node that holds the first key value within the scan range
      */
-    void scanRecursiveHelper(badgerdb::PageId, badgerdb::PageId&);
+    void scanRecursiveHelper(PageId pageId, PageId &leaf);
    
 public:
 

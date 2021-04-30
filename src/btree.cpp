@@ -45,6 +45,7 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 	this->attributeType = attrType;
 	this->attrByteOffset = attrByteOffset;
 	this->scanExecuting = false;	
+    this->currentPageData = NULL;
 
 	try {
 		// check if the specified index file exist
@@ -100,7 +101,7 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 		// erase the fscan object
 		delete fscan;
 	} catch (FileExistsException & e) {
-		// open the index file
+		// open the existing index file
         // pull varible from File
 		file = new BlobFile(outIndexName, false);
         this->headerPageNum = file->getFirstPageNo();
@@ -323,6 +324,7 @@ void BTreeIndex::insertToNonLeaf(PageId pageId, int keyVal, const RecordId rid,b
         int propagatedKey = false;
         PageId propagatedPageL = Page::INVALID_NUMBER;
         PageId propagatedPageR = Page::INVALID_NUMBER;
+        
         if (node->level == 1){// next level is a leaf        
             insertToLeaf(insertPageId, keyVal, rid, hasPropagatedKey, propagatedPageL, propagatedPageR, propagatedKey);
         } else {
@@ -414,6 +416,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
     bool hasNewKey = false;
     if (isRootLeaf){
         insertToLeaf(rootPageNum, keyVal, rid, hasNewKey, newPageNumL, newPageNumR, newKey); 
+        
         if (hasNewKey){
                 isRootLeaf = false;
                 PageId newPageNumL = rootPageNum;
@@ -449,6 +452,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
             page = NULL;
             rootNode = NULL;
         }
+
     }
 
     // update metapage
@@ -462,7 +466,6 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 // -----------------------------------------------------------------------------
 // BTreeIndex::startScan
 // -----------------------------------------------------------------------------
-
 void BTreeIndex::startScan(const void* lowValParm,
 				   const Operator lowOpParm,
 				   const void* highValParm,
@@ -470,7 +473,9 @@ void BTreeIndex::startScan(const void* lowValParm,
 {
     // Add your code below. Please do not remove this line.
     scanExecuting = true;
-    
+    this->currentPageData = NULL;
+    currentPageNum = Page::INVALID_NUMBER;    
+
     if (lowOpParm != GT && lowOpParm !=GTE){
         throw BadOpcodesException();
     } else if(highOpParm != LT && highOpParm != LTE){
@@ -524,6 +529,7 @@ void BTreeIndex::scanLeaf(PageId leafId, int &keyIndex, bool &found){
     LeafNodeInt *leaf = (LeafNodeInt*) page;
     found = false;
     int searchVal = lowValInt;
+
     if (lowOp == GT){
         searchVal = lowValInt + 1;
     }
@@ -541,6 +547,7 @@ void BTreeIndex::scanLeaf(PageId leafId, int &keyIndex, bool &found){
     page = NULL;
     leaf = NULL;
 }
+
 // -----------------------------------------------------------------------------
 // BTreeIndex::scanRecursiveHelper
 // -----------------------------------------------------------------------------
@@ -608,8 +615,9 @@ void BTreeIndex::startScanInt(){
         scanExecuting = false;
         std::cout << "Scan finished: "
             << "No matching value found within the range " << 
-            lowValInt << "to " << highValInt << std::endl;
+            lowValInt << " to " << highValInt << std::endl;
     }
+
 }
 
 // -----------------------------------------------------------------------------
@@ -626,24 +634,27 @@ void BTreeIndex::scanNext(RecordId& outRid)
         throw IndexScanCompletedException();
     }   
 
+    // read the page it is not loaded already
+    if (currentPageData == NULL){ 
+        std::cout << "read page" << currentPageNum << std::endl;
+        bufMgr->readPage(file, currentPageNum, currentPageData);
+    }
+    
+    LeafNodeInt *currNode = (LeafNodeInt *)currentPageData;
+
     //load the next record entry
-    Page *currPage;
-    bufMgr->readPage(file, currentPageNum, currPage);
-    LeafNodeInt *currNode = (LeafNodeInt *)currPage;
     int keyVal = (currNode->keyArray)[nextEntry];
     
     //key value validation
     switch (lowOp){
         case GT:{
             if (keyVal <= lowValInt){
-                bufMgr->unPinPage(file, currentPageNum, false);   
                 throw IndexScanCompletedException();
             }
             break;
         }
         case GTE: {
             if (keyVal < lowValInt){
-                bufMgr->unPinPage(file, currentPageNum, false);   
                 throw IndexScanCompletedException();
             }
             break;
@@ -656,14 +667,12 @@ void BTreeIndex::scanNext(RecordId& outRid)
     switch (highOp){
         case LT:{
             if (keyVal >= highValInt){
-                bufMgr->unPinPage(file, currentPageNum, false);   
                 throw IndexScanCompletedException();
             }
             break;
         }
         case LTE:{
             if (keyVal > highValInt){
-                bufMgr->unPinPage(file, currentPageNum, false);   
                 throw IndexScanCompletedException();
             }
             break;
@@ -675,15 +684,17 @@ void BTreeIndex::scanNext(RecordId& outRid)
 
     outRid = (currNode->ridArray)[nextEntry]; 
 
-    //move the cursor forward
+    // move the cursor forward
     nextEntry++;
-    PageId nextPageId = currNode->rightSibPageNo;
-    int currNodeLeng = currNode->length;
-    bufMgr->unPinPage(file, currentPageNum, false);   
-    currPage = NULL;
-    currNode = NULL;
-    
-    if (nextEntry >= currNodeLeng){
+   
+    // if the next entry is in the next page  
+    if (nextEntry >= currNode->length){
+        PageId nextPageId = currNode->rightSibPageNo;
+        std::cout << "unpin page" << currentPageNum << std::endl;
+        bufMgr->unPinPage(file, currentPageNum, false);   
+        currentPageData = NULL;
+        currNode = NULL;
+
         currentPageNum = nextPageId;
         nextEntry = 0;
     }
@@ -699,6 +710,11 @@ void BTreeIndex::endScan()
 	if (!scanExecuting) 
 		throw ScanNotInitializedException();
 	scanExecuting = false;
+
+    // only unpin the current page if it is a valid page
+    if (currentPageNum != Page::INVALID_NUMBER){
+        bufMgr->unPinPage(file, currentPageNum, false);   
+    }   
 }
 
 }
