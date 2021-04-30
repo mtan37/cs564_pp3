@@ -131,9 +131,11 @@ BTreeIndex::~BTreeIndex()
 // -----------------------------------------------------------------------------
 // BTreeIndex::splitNonLeafNodeWithNewKey
 // -----------------------------------------------------------------------------
-void BTreeIndex::splitNonLeafNodeWithNewKey(Page* node, PageId &newNodeNumL, PageId &newNodeNumR, int &newKey){
+void BTreeIndex::splitNonLeafNodeWithNewKey(PageId nfId, PageId &newNodeNumL, PageId &newNodeNumR, int &newKey){
     
-    NonLeafNodeInt *nf = (NonLeafNodeInt*) node;
+    Page *page = NULL;
+    bufMgr->readPage(file, nfId, page);
+    NonLeafNodeInt *nf = (NonLeafNodeInt*) page;
     
     if (nf->length < INTARRAYNONLEAFSIZE){
         // do nothing, the node is not full yet
@@ -141,28 +143,14 @@ void BTreeIndex::splitNonLeafNodeWithNewKey(Page* node, PageId &newNodeNumL, Pag
         return;
     }
 
-    Page *newPageL;
     Page *newPageR;
     newKey = nf->keyArray[INTARRAYNONLEAFSIZE/2];
-    bufMgr->allocPage(file, newNodeNumL, newPageL); 
     bufMgr->allocPage(file, newNodeNumR, newPageR); 
-    NonLeafNodeInt *newNodeL = (NonLeafNodeInt *)newPageL;
     NonLeafNodeInt *newNodeR = (NonLeafNodeInt *)newPageR;
-
-    // copy the key array from the original node into the new nodes
-    int newNodeLength = 0;
-    for (int i = 0; i < INTARRAYNONLEAFSIZE/2; i++){
-        newNodeL->keyArray[newNodeLength] = nf->keyArray[i]; 
-        newNodeL->pageNoArray[newNodeLength] = nf->pageNoArray[i]; 
-        newNodeLength = newNodeLength + 1;
-    }
-    newNodeL->pageNoArray[newNodeLength] = nf->pageNoArray[newNodeLength];
-    newNodeL->length = newNodeLength;   
-    newNodeL->level = nf->level;
- 
+    
     // copy into right node
     // note that the pushed up key is not kept
-    newNodeLength = 0;
+    int newNodeLength = 0;
     for (int i = INTARRAYNONLEAFSIZE/2 + 1; i < INTARRAYNONLEAFSIZE; i++){
         newNodeR->keyArray[newNodeLength] = nf->keyArray[i]; 
         newNodeR->pageNoArray[newNodeLength] = nf->pageNoArray[i]; 
@@ -172,11 +160,11 @@ void BTreeIndex::splitNonLeafNodeWithNewKey(Page* node, PageId &newNodeNumL, Pag
     newNodeR->length = newNodeLength;   
     newNodeR->level = nf->level;
     
-    bufMgr->unPinPage(file, newNodeNumL, true); 
+    nf->length = INTARRAYNONLEAFSIZE/2;   
+    
+    bufMgr->unPinPage(file, nfId, true); 
     bufMgr->unPinPage(file, newNodeNumR, true);
-    newPageL = NULL;
     newPageR = NULL;
-    newNodeL = NULL;
     newNodeR = NULL; 
 }
 
@@ -300,12 +288,12 @@ void BTreeIndex::insertToNonLeaf(PageId pageId, int keyVal, const RecordId rid,b
         
         // if this non-leaf is full, split
         if (node->length >= INTARRAYNONLEAFSIZE) {
-            splitNonLeafNodeWithNewKey(page, newPageNumL, newPageNumR, newKey);             
-            hasNewKey = true;
             bufMgr->unPinPage(file, pageId, true);
+            hasNewKey = true;
             node = NULL;
             page = NULL;       
-            //bufMgr->disposePage(file, pageId);
+            
+            splitNonLeafNodeWithNewKey(pageId, newPageNumL, newPageNumR, newKey);             
             
             if (newKey < keyVal){
                 bufMgr->readPage(file, newPageNumR, page);
