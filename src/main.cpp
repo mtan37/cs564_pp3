@@ -79,6 +79,8 @@ void test1();
 void test2();
 void test3();
 void test4();
+void test5();
+
 void errorTests();
 void deleteRelation();
 
@@ -159,8 +161,9 @@ int main(int argc, char **argv)
 	test1();
 	test2();
 	test3();
-	//custom test
+  //custom test
 	test4();
+	test5();
 
 	errorTests();
 
@@ -223,6 +226,38 @@ void test4() {
 	checkPassFail(intScan(&index, 24, GT, 86, LT), 61);
 
 	deleteRelation();
+}
+
+void test5()
+{
+	std::cout << "---------------------" << std::endl;
+	std::cout << "use existing file" << std::endl;
+	createRelationForward();
+	indexTests();
+    
+    // create index using existing file
+    BTreeIndex index2(relationName, intIndexName, bufMgr, offsetof(tuple,i), INTEGER);
+    
+    //basic range checking
+	checkPassFail(intScan(&index2, -100, GT, 100, LT), 100);
+	checkPassFail(intScan(&index2, -50, GT, 50, LT), 50);
+  
+	// run some tests
+	checkPassFail(intScan(&index2,25,GT,40,LT), 14)
+	checkPassFail(intScan(&index2,20,GTE,35,LTE), 16)
+	checkPassFail(intScan(&index2,-3,GT,3,LT), 3)
+	checkPassFail(intScan(&index2,996,GT,1001,LT), 4)
+	checkPassFail(intScan(&index2,0,GT,1,LT), 0)
+	checkPassFail(intScan(&index2,300,GT,400,LT), 99)
+	checkPassFail(intScan(&index2,3000,GTE,4000,LT), 1000)
+
+	//check for edge case of off-by-one errors with operators
+	checkPassFail(intScan(&index2, 24, GTE, 86, LTE), 63);
+	checkPassFail(intScan(&index2, 24, GT, 86, LTE), 62);
+	checkPassFail(intScan(&index2, 24, GTE, 86, LT), 62);
+	checkPassFail(intScan(&index2, 24, GT, 86, LT), 61);
+
+    deleteRelation();
 }
 
 // -----------------------------------------------------------------------------
@@ -420,15 +455,6 @@ void intTests()
 	checkPassFail(intScan(&index,0,GT,1,LT), 0)
 	checkPassFail(intScan(&index,300,GT,400,LT), 99)
 	checkPassFail(intScan(&index,3000,GTE,4000,LT), 1000)
-  BTreeIndex index2(relationName, intIndexName, bufMgr, offsetof(tuple,i), INTEGER);
-	// run some tests
-	checkPassFail(intScan(&index2,25,GT,40,LT), 14)
-	checkPassFail(intScan(&index2,20,GTE,35,LTE), 16)
-	checkPassFail(intScan(&index2,-3,GT,3,LT), 3)
-	checkPassFail(intScan(&index2,996,GT,1001,LT), 4)
-	checkPassFail(intScan(&index2,0,GT,1,LT), 0)
-	checkPassFail(intScan(&index2,300,GT,400,LT), 99)
-	checkPassFail(intScan(&index2,3000,GTE,4000,LT), 1000)
 }
 
 int intScan(BTreeIndex * index, int lowVal, Operator lowOp, int highVal, Operator highOp)
