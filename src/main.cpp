@@ -78,6 +78,7 @@ void indexTests();
 void test1();
 void test2();
 void test3();
+void test4();
 void errorTests();
 void deleteRelation();
 
@@ -158,6 +159,9 @@ int main(int argc, char **argv)
 	test1();
 	test2();
 	test3();
+	//custom test
+	test4();
+
 	errorTests();
 
 	delete bufMgr;
@@ -195,6 +199,29 @@ void test3()
 	std::cout << "createRelationRandom" << std::endl;
 	createRelationRandom();
 	indexTests();
+	deleteRelation();
+}
+//
+// custom test
+//
+void test4() {
+
+	std::cout << "--------------------" << std::endl;
+	std::cout << "range and operator testing" << std::endl;
+
+	createRelationRandom();
+	BTreeIndex index(relationName, intIndexName, bufMgr, offsetof(tuple, i), INTEGER);
+
+	//basic range checking
+	checkPassFail(intScan(&index, -100, GT, 100, LT), 100);
+	checkPassFail(intScan(&index, -50, GT, 50, LT), 50);
+
+	//check for edge case of off-by-one errors with operators
+	checkPassFail(intScan(&index, 24, GTE, 86, LTE), 63);
+	checkPassFail(intScan(&index, 24, GT, 86, LTE), 62);
+	checkPassFail(intScan(&index, 24, GTE, 86, LT), 62);
+	checkPassFail(intScan(&index, 24, GT, 86, LT), 61);
+
 	deleteRelation();
 }
 
